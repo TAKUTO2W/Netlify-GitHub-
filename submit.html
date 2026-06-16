@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>イベント掲載申請 | CARJAM</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .submit-wrap { max-width: 720px; margin: 0 auto; padding: 48px 24px; }
+    .submit-hero { margin-bottom: 40px; }
+    .submit-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 36px 40px; }
+    .form-section { margin-bottom: 32px; padding-bottom: 28px; border-bottom: 1px solid var(--border); }
+    .form-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .form-section-title { font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--red); margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .form-row.full { grid-template-columns: 1fr; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-label { font-size: 12px; font-weight: 600; color: var(--text-muted); letter-spacing: .3px; }
+    .form-label span { color: var(--red); margin-left: 2px; }
+    .form-input, .form-select, .form-textarea {
+      background: var(--bg-dark); border: 1px solid var(--border); color: var(--text);
+      padding: 10px 14px; border-radius: var(--radius); font-size: 14px; font-family: var(--font);
+      transition: border-color .2s; width: 100%;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: var(--red); }
+    .form-textarea { resize: vertical; min-height: 100px; line-height: 1.6; }
+    .form-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
+    .form-hint { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+    .form-submit { display: flex; gap: 12px; align-items: center; margin-top: 32px; }
+    .btn-submit { flex: 1; padding: 14px; background: var(--red); color: #fff; border-radius: var(--radius); font-size: 15px; font-weight: 700; cursor: pointer; transition: background .2s; border: none; font-family: var(--font); }
+    .btn-submit:hover { background: var(--red-dark); }
+    .btn-reset { padding: 14px 20px; border: 1px solid var(--border); color: var(--text-muted); border-radius: var(--radius); font-size: 14px; cursor: pointer; background: none; font-family: var(--font); transition: all .2s; }
+    .btn-reset:hover { border-color: rgba(255,255,255,.2); color: var(--text); }
+    .success-msg { display: none; background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.3); border-radius: var(--radius-lg); padding: 24px; text-align: center; margin-top: 24px; }
+    .success-msg.show { display: block; }
+    .success-icon { font-size: 40px; color: #4ade80; margin-bottom: 12px; }
+    .steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 40px; }
+    .step { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; text-align: center; }
+    .step-num { width: 36px; height: 36px; background: var(--red-glow); border: 1px solid var(--border-red); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; color: var(--red); margin: 0 auto 10px; }
+    .step-title { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 5px; }
+    .step-desc { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+    @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } .steps { grid-template-columns: 1fr; } .submit-card { padding: 24px 20px; } }
+  </style>
+</head>
+<body>
+<div class="ticker-wrap"><div class="ticker" id="ticker"></div></div>
+<nav class="nav">
+  <a class="nav-logo" href="index.html">
+    <div class="nav-logo-mark">CJ</div>
+    <div><div class="nav-logo-text">CARJAM</div><div class="nav-logo-sub">Japan Car Events</div></div>
+  </a>
+  <div class="nav-tabs">
+    <a class="nav-tab" href="index.html"><i class="ti ti-list"></i> イベント一覧</a>
+    <a class="nav-tab" href="blog.html"><i class="ti ti-article"></i> ブログ</a>
+    <a class="nav-tab active" href="submit.html"><i class="ti ti-circle-plus"></i> イベント登録</a>
+    <a class="nav-tab" href="sponsor.html"><i class="ti ti-star"></i> 掲載依頼</a>
+  </div>
+  <div class="nav-right">
+    <a href="https://usdm.manus.space/" target="_blank" class="nav-usdm"><i class="ti ti-external-link" style="font-size:11px;margin-right:4px"></i>株式会社USDM</a>
+  </div>
+</nav>
+
+<main class="main">
+  <div class="submit-wrap">
+    <div class="submit-hero">
+      <div class="hero-badge" style="margin-bottom:16px"><div class="hero-badge-dot"></div>無料掲載</div>
+      <h1 style="font-size:30px;font-weight:900;color:#fff;margin-bottom:10px;font-style:italic">イベント掲載<span style="color:var(--red)">申請</span></h1>
+      <p style="font-size:14px;color:var(--text-muted);line-height:1.7">車イベントの主催者・運営者の方はこちらからイベント情報をご登録ください。<br>審査後、CARJAMに無料で掲載いたします。</p>
+    </div>
+
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div class="step-title">フォーム送信</div><div class="step-desc">イベント情報を入力して申請</div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-title">審査・確認</div><div class="step-desc">運営チームが内容を確認（1〜3営業日）</div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-title">掲載開始</div><div class="step-desc">承認後、CARJAMに掲載されます</div></div>
+    </div>
+
+    <div class="submit-card">
+      <form id="submit-form" onsubmit="handleSubmit(event)">
+
+        <div class="form-section">
+          <div class="form-section-title"><i class="ti ti-calendar-event"></i>イベント基本情報</div>
+          <div class="form-row full">
+            <div class="form-group">
+              <label class="form-label">イベント名<span>*</span></label>
+              <input class="form-input" type="text" placeholder="例：第〇回 ○○カーミーティング" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">開催日（開始）<span>*</span></label>
+              <input class="form-input" type="date" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">開催日（終了）</label>
+              <input class="form-input" type="date">
+              <div class="form-hint">1日のみの場合は空白でOK</div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">カテゴリ<span>*</span></label>
+              <select class="form-select" required>
+                <option value="">選択してください</option>
+                <option>レース</option>
+                <option>カスタム・チューニング</option>
+                <option>モーターショー</option>
+                <option>クラシックカー</option>
+                <option>カーミーティング</option>
+                <option>オフロード・SUV</option>
+                <option>その他</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">入場料</label>
+              <input class="form-input" type="text" placeholder="例：無料 / 大人1,500円">
+            </div>
+          </div>
+          <div class="form-row full">
+            <div class="form-group">
+              <label class="form-label">イベント概要<span>*</span></label>
+              <textarea class="form-textarea" placeholder="イベントの内容、見どころ、参加対象など200字程度でご記載ください" required></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title"><i class="ti ti-map-pin"></i>開催場所</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">都道府県<span>*</span></label>
+              <select class="form-select" required>
+                <option value="">選択してください</option>
+                <option>北海道</option><option>青森県</option><option>岩手県</option><option>宮城県</option><option>秋田県</option><option>山形県</option><option>福島県</option>
+                <option>茨城県</option><option>栃木県</option><option>群馬県</option><option>埼玉県</option><option>千葉県</option><option>東京都</option><option>神奈川県</option>
+                <option>新潟県</option><option>富山県</option><option>石川県</option><option>福井県</option><option>山梨県</option><option>長野県</option><option>岐阜県</option>
+                <option>静岡県</option><option>愛知県</option><option>三重県</option>
+                <option>滋賀県</option><option>京都府</option><option>大阪府</option><option>兵庫県</option><option>奈良県</option><option>和歌山県</option>
+                <option>鳥取県</option><option>島根県</option><option>岡山県</option><option>広島県</option><option>山口県</option>
+                <option>徳島県</option><option>香川県</option><option>愛媛県</option><option>高知県</option>
+                <option>福岡県</option><option>佐賀県</option><option>長崎県</option><option>熊本県</option><option>大分県</option><option>宮崎県</option><option>鹿児島県</option><option>沖縄県</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">会場名<span>*</span></label>
+              <input class="form-input" type="text" placeholder="例：○○サーキット、△△公園" required>
+            </div>
+          </div>
+          <div class="form-row full">
+            <div class="form-group">
+              <label class="form-label">住所</label>
+              <input class="form-input" type="text" placeholder="例：東京都江東区夢の島2-1-1">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title"><i class="ti ti-link"></i>関連リンク・メディア</div>
+          <div class="form-row full">
+            <div class="form-group">
+              <label class="form-label">公式サイト URL</label>
+              <input class="form-input" type="url" placeholder="https://example.com">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">X（Twitter）アカウント</label>
+              <input class="form-input" type="text" placeholder="@username">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Instagram アカウント</label>
+              <input class="form-input" type="text" placeholder="@username">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title"><i class="ti ti-user"></i>申請者情報</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">お名前 / 団体名<span>*</span></label>
+              <input class="form-input" type="text" placeholder="例：○○実行委員会" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">メールアドレス<span>*</span></label>
+              <input class="form-input" type="email" placeholder="example@email.com" required>
+            </div>
+          </div>
+          <div class="form-row full">
+            <div class="form-group">
+              <label class="form-label">備考・その他</label>
+              <textarea class="form-textarea" style="min-height:70px" placeholder="ご要望や追加情報があればご記載ください"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:rgba(232,0,29,.06);border:1px solid rgba(232,0,29,.15);border-radius:var(--radius);padding:14px 16px;margin-bottom:24px;font-size:12px;color:var(--text-muted);line-height:1.6">
+          ご入力いただいた情報は、CARJAM上でのイベント掲載のみに使用します。掲載の可否については申請から1〜3営業日以内にメールにてご連絡いたします。
+        </div>
+
+        <div class="form-submit">
+          <button type="reset" class="btn-reset">リセット</button>
+          <button type="submit" class="btn-submit"><i class="ti ti-send" style="margin-right:6px"></i>申請を送信する</button>
+        </div>
+      </form>
+
+      <div class="success-msg" id="success-msg">
+        <div class="success-icon"><i class="ti ti-circle-check"></i></div>
+        <div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:8px">申請を受け付けました！</div>
+        <div style="font-size:13px;color:var(--text-muted);line-height:1.6">ご入力いただいたメールアドレス宛に確認メールをお送りしました。<br>審査完了後（1〜3営業日）に掲載可否のご連絡をいたします。</div>
+        <a href="index.html" style="display:inline-flex;align-items:center;gap:6px;background:var(--red);color:#fff;padding:10px 20px;border-radius:var(--radius);font-size:13px;font-weight:700;margin-top:20px">
+          <i class="ti ti-arrow-left"></i>トップに戻る
+        </a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="line-banner">
+  <div class="line-banner-inner">
+    <div class="line-banner-left">
+      <div class="line-icon-wrap"><svg viewBox="0 0 48 48" width="40" height="40"><rect width="48" height="48" rx="10" fill="#06C755"/><path d="M24 10C15.16 10 8 16.28 8 24.04c0 7.02 6.23 12.9 14.64 14.04.57.12 1.34.37 1.54.85.17.44.11 1.12.06 1.56l-.25 1.5c-.08.44-.35 1.72 1.51.94 1.86-.78 10.03-5.9 13.69-10.1C41.44 30.4 40 27.36 40 24.04 40 16.28 32.84 10 24 10z" fill="white"/></svg></div>
+      <div>
+        <div class="line-banner-label">株式会社USDM 公式LINE</div>
+        <div class="line-banner-title">カーパーツ・カスタムのご相談はこちら</div>
+        <div class="line-banner-desc">お探しのカーパーツ、カスタムパーツのご相談をLINEで気軽にどうぞ。USDMのプロスタッフが丁寧にお答えします。</div>
+      </div>
+    </div>
+    <div class="line-banner-right">
+      <div class="line-id-badge">LINE ID: @414xknuy</div>
+      <a href="https://line.me/R/ti/p/@414xknuy" target="_blank" class="line-add-btn">
+        <svg viewBox="0 0 20 20" width="16" height="16" fill="white"><path d="M10 2C5.58 2 2 5.16 2 9.02c0 3.51 3.11 6.45 7.32 7.02.28.06.67.18.77.42.08.22.06.56.03.78l-.12.75c-.04.22-.18.86.76.47.93-.39 5.01-2.95 6.84-5.05C18.22 12.2 17.5 10.68 17.5 9.02 18 5.16 14.42 2 10 2z"/></svg>友だち追加
+      </a>
+    </div>
+  </div>
+</div>
+
+<script src="js/events-data.js"></script>
+<script>
+function handleSubmit(e) {
+  e.preventDefault();
+  document.getElementById('submit-form').style.display = 'none';
+  document.getElementById('success-msg').classList.add('show');
+  window.scrollTo({top: document.getElementById('success-msg').offsetTop - 100, behavior: 'smooth'});
+}
+const upcoming = EVENTS_DATA.filter(e => new Date(e.date) >= new Date()).sort((a,b) => new Date(a.date)-new Date(b.date)).slice(0,6);
+const items = upcoming.map(e => `<span class="ticker-item"><span class="ticker-sep">◆</span>${e.date.slice(5).replace('-','/')} ${e.name}</span>`).join('');
+document.getElementById('ticker').innerHTML = items + items;
+</script>
+</body>
+</html>

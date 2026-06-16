@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CARJAM - 日本全国 車イベント情報</title>
+  <meta name="description" content="日本全国の車イベント情報を網羅。レース、カスタムカーショー、クラシックカーイベントなど、車好きのための情報サイト。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- TICKER -->
+<div class="ticker-wrap">
+  <div class="ticker" id="ticker"></div>
+</div>
+
+<!-- NAV -->
+<nav class="nav">
+  <a class="nav-logo" href="index.html">
+    <div class="nav-logo-mark">CJ</div>
+    <div>
+      <div class="nav-logo-text">CARJAM</div>
+      <div class="nav-logo-sub">Japan Car Events</div>
+    </div>
+  </a>
+
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-view="list"><i class="ti ti-list"></i> イベント一覧</button>
+    <button class="nav-tab" data-view="calendar"><i class="ti ti-calendar"></i> カレンダー</button>
+    <button class="nav-tab" data-view="map"><i class="ti ti-map"></i> マップ</button>
+    <button class="nav-tab" data-view="favorites"><i class="ti ti-heart"></i> お気に入り <span class="fav-count-badge" id="nav-fav-count" style="display:none"></span></button>
+    <a class="nav-tab" href="blog.html"><i class="ti ti-article"></i> ブログ</a>
+  </div>
+
+  <div class="nav-right">
+    <a href="submit.html" class="nav-usdm" style="border-color:rgba(232,0,29,.3);color:var(--red)"><i class="ti ti-circle-plus" style="font-size:12px;margin-right:4px"></i>イベント登録</a>
+    <a href="sponsor.html" class="nav-usdm"><i class="ti ti-star" style="font-size:11px;margin-right:4px"></i>掲載依頼</a>
+    <a href="https://usdm.manus.space/" target="_blank" class="nav-usdm"><i class="ti ti-external-link" style="font-size:11px;margin-right:4px"></i>USDM公式</a>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-grid"></div>
+    <div class="hero-accent"></div>
+    <div class="hero-line"></div>
+    <div class="hero-content">
+      <div class="hero-badge"><div class="hero-badge-dot"></div>JAPAN CAR EVENTS DATABASE</div>
+      <h1>日本の車<span>イベント</span><br>全部ここに</h1>
+      <p class="hero-sub">レース、カスタムショー、クラシックカー、ミーティング。<br>日本全国のカーイベントをこの一サイトで。</p>
+      <div class="hero-stats">
+        <div>
+          <div class="hero-stat-num" id="stat-total">—<span>件</span></div>
+          <div class="hero-stat-label">掲載イベント数</div>
+        </div>
+        <div>
+          <div class="hero-stat-num">8<span>地域</span></div>
+          <div class="hero-stat-label">カバーエリア</div>
+        </div>
+        <div>
+          <div class="hero-stat-num">2<span>年分</span></div>
+          <div class="hero-stat-label">情報を収録</div>
+        </div>
+      </div>
+    </div>
+    <!-- HERO VISUAL -->
+    <div class="hero-car-wrap">
+      <img src="images/hero-car.jpg" alt="hero car" class="hero-car-photo" onerror="this.style.display='none'">
+      <svg class="hero-car-svg" viewBox="0 0 560 340" xmlns="http://www.w3.org/2000/svg" id="hero-car-fallback">
+        <defs>
+          <radialGradient id="glow" cx="50%" cy="80%" r="50%">
+            <stop offset="0%" stop-color="#e8001d" stop-opacity="0.18"/>
+            <stop offset="100%" stop-color="#e8001d" stop-opacity="0"/>
+          </radialGradient>
+          <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#2a2a2a"/>
+            <stop offset="100%" stop-color="#0d0d0d"/>
+          </linearGradient>
+          <linearGradient id="roofGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#222"/>
+            <stop offset="100%" stop-color="#111"/>
+          </linearGradient>
+          <filter id="blur"><feGaussianBlur stdDeviation="8"/></filter>
+        </defs>
+
+        <!-- Ground glow -->
+        <ellipse cx="280" cy="295" rx="230" ry="18" fill="url(#glow)" filter="url(#blur)"/>
+        <ellipse cx="280" cy="296" rx="200" ry="8" fill="#e8001d" opacity="0.06"/>
+
+        <!-- Shadow -->
+        <ellipse cx="278" cy="294" rx="195" ry="9" fill="#000" opacity="0.7"/>
+
+        <!-- === GT SPORTS CAR — low-slung, wide, aggressive === -->
+
+        <!-- Rear spoiler -->
+        <rect x="360" y="140" width="100" height="8" rx="2" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+        <rect x="420" y="130" width="8" height="18" rx="1" fill="#222" stroke="#333" stroke-width="1"/>
+        <rect x="444" y="130" width="8" height="18" rx="1" fill="#222" stroke="#333" stroke-width="1"/>
+
+        <!-- Body shell — very low, wide GT profile -->
+        <path d="
+          M 55 252
+          L 55 218
+          Q 56 200 70 192
+          L 108 172
+          Q 140 148 175 136
+          L 220 125
+          Q 255 118 285 116
+          L 340 116
+          Q 382 116 415 128
+          L 448 140
+          Q 468 150 478 166
+          L 490 190
+          L 495 218
+          L 495 252
+          Z
+        " fill="url(#bodyGrad)" stroke="#2a2a2a" stroke-width="1.5"/>
+
+        <!-- Roof / cabin — short fastback -->
+        <path d="
+          M 175 218
+          L 178 192
+          Q 190 155 218 138
+          L 260 126
+          L 340 124
+          Q 378 124 405 138
+          L 428 155
+          Q 440 166 442 185
+          L 442 218
+          Z
+        " fill="url(#roofGrad)" stroke="#222" stroke-width="1"/>
+
+        <!-- Windshield -->
+        <path d="M 182 215 L 190 188 Q 205 158 230 144 L 270 132 L 330 130 L 330 215 Z"
+          fill="#0b1520" stroke="#1a2a3a" stroke-width="1" opacity="0.95"/>
+        <!-- Windshield highlight -->
+        <path d="M 188 210 L 196 186 Q 208 162 228 150 L 262 138 L 295 136 L 295 210 Z"
+          fill="white" opacity="0.03"/>
+
+        <!-- Rear window (fastback) -->
+        <path d="M 338 130 L 398 136 Q 420 142 432 158 L 438 180 L 438 215 L 338 215 Z"
+          fill="#0b1520" stroke="#1a2a3a" stroke-width="1" opacity="0.95"/>
+
+        <!-- Sill / belt line accent -->
+        <path d="M 65 222 Q 180 210 280 208 Q 390 208 488 215"
+          stroke="#e8001d" stroke-width="1.5" fill="none" opacity="0.6"/>
+
+        <!-- Lower skirt -->
+        <path d="M 55 245 L 495 245 L 495 255 Q 495 260 488 261 L 62 261 Q 55 260 55 255 Z"
+          fill="#0f0f0f" stroke="#1a1a1a" stroke-width="1"/>
+
+        <!-- Front bumper / splitter -->
+        <path d="M 55 218 L 55 248 Q 55 254 62 255 L 148 255 L 148 240 L 65 240 L 65 218 Z"
+          fill="#0e0e0e" stroke="#222" stroke-width="1"/>
+        <!-- Front splitter blade -->
+        <path d="M 56 246 L 148 246 L 148 252 L 56 252 Z" fill="#111" stroke="#e8001d" stroke-width="0.5"/>
+
+        <!-- Rear bumper / diffuser -->
+        <path d="M 495 218 L 495 248 Q 495 254 488 255 L 400 255 L 400 240 L 485 240 L 485 218 Z"
+          fill="#0e0e0e" stroke="#222" stroke-width="1"/>
+        <!-- Diffuser fins -->
+        <line x1="415" y1="245" x2="415" y2="255" stroke="#333" stroke-width="1.5"/>
+        <line x1="428" y1="245" x2="428" y2="255" stroke="#333" stroke-width="1.5"/>
+        <line x1="441" y1="245" x2="441" y2="255" stroke="#333" stroke-width="1.5"/>
+        <line x1="454" y1="245" x2="454" y2="255" stroke="#333" stroke-width="1.5"/>
+        <line x1="467" y1="245" x2="467" y2="255" stroke="#333" stroke-width="1.5"/>
+
+        <!-- Exhaust tips -->
+        <ellipse cx="412" cy="260" rx="7" ry="4" fill="#111" stroke="#333" stroke-width="1.5"/>
+        <ellipse cx="432" cy="260" rx="7" ry="4" fill="#111" stroke="#333" stroke-width="1.5"/>
+        <ellipse cx="412" cy="260" rx="4" ry="2" fill="#0a0a0a"/>
+        <ellipse cx="432" cy="260" rx="4" ry="2" fill="#0a0a0a"/>
+
+        <!-- HEADLIGHTS — angular, modern -->
+        <path d="M 57 198 L 57 225 Q 57 232 65 233 L 130 233 L 130 194 Q 108 188 82 190 Z"
+          fill="#08111a" stroke="#0d1e2e" stroke-width="1"/>
+        <!-- Headlight inner -->
+        <path d="M 63 202 L 63 226 L 125 226 L 125 198 Z" fill="#0a1825" opacity="0.8"/>
+        <!-- DRL - sharp angular line -->
+        <path d="M 60 207 L 125 200" stroke="#fff" stroke-width="2.5" opacity="0.9" stroke-linecap="round"/>
+        <!-- DRL red accent below -->
+        <path d="M 60 211 L 125 204" stroke="#e8001d" stroke-width="1.5" opacity="0.7" stroke-linecap="round"/>
+        <!-- Low beam indicator -->
+        <ellipse cx="90" cy="218" rx="12" ry="8" fill="#fff" opacity="0.04"/>
+
+        <!-- TAILLIGHTS — full-width bar style -->
+        <path d="M 495 196 L 495 228 Q 495 234 488 235 L 428 235 L 428 192 Q 450 188 472 190 Z"
+          fill="#1a0005" stroke="#2a0008" stroke-width="1"/>
+        <!-- Tail light bar -->
+        <path d="M 430 200 L 490 196" stroke="#e8001d" stroke-width="3" opacity="1" stroke-linecap="round"/>
+        <path d="M 430 205 L 490 201" stroke="#e8001d" stroke-width="2" opacity="0.6" stroke-linecap="round"/>
+        <path d="M 430 210 L 490 206" stroke="#c00016" stroke-width="1" opacity="0.4" stroke-linecap="round"/>
+        <!-- Tail glow -->
+        <ellipse cx="490" cy="202" rx="10" ry="5" fill="#e8001d" opacity="0.3" filter="url(#blur)"/>
+
+        <!-- Door line (subtle) -->
+        <line x1="320" y1="218" x2="320" y2="255" stroke="#222" stroke-width="1.5"/>
+
+        <!-- Side vent / air intake -->
+        <path d="M 105 210 L 105 232 L 142 232 L 142 210 Z" fill="#0a0a0a" stroke="#1a1a1a" stroke-width="1"/>
+        <line x1="110" y1="210" x2="110" y2="232" stroke="#222" stroke-width="1"/>
+        <line x1="118" y1="210" x2="118" y2="232" stroke="#222" stroke-width="1"/>
+        <line x1="126" y1="210" x2="126" y2="232" stroke="#222" stroke-width="1"/>
+        <line x1="134" y1="210" x2="134" y2="232" stroke="#222" stroke-width="1"/>
+
+        <!-- FRONT WHEEL WELL -->
+        <path d="M 68 252 Q 68 305 148 305 Q 228 305 228 252 Z" fill="#060606" stroke="#1a1a1a" stroke-width="1.5"/>
+        <!-- REAR WHEEL WELL -->
+        <path d="M 342 252 Q 342 305 422 305 Q 502 305 502 252 Z" fill="#060606" stroke="#1a1a1a" stroke-width="1.5"/>
+
+        <!-- FRONT WHEEL — multi-spoke racing -->
+        <circle cx="148" cy="286" r="44" fill="#0d0d0d" stroke="#2a2a2a" stroke-width="2"/>
+        <circle cx="148" cy="286" r="36" fill="#0a0a0a" stroke="#222" stroke-width="1.5"/>
+        <!-- 5-spoke -->
+        <g stroke="#444" stroke-width="3" stroke-linecap="round">
+          <line x1="148" y1="250" x2="148" y2="268"/>
+          <line x1="148" y1="304" x2="148" y2="322"/>
+          <line x1="113" y1="265" x2="127" y2="274"/>
+          <line x1="169" y1="298" x2="183" y2="307"/>
+          <line x1="117" y1="305" x2="130" y2="296"/>
+          <line x1="166" y1="274" x2="179" y2="265"/>
+        </g>
+        <circle cx="148" cy="286" r="16" fill="#141414" stroke="#333" stroke-width="1.5"/>
+        <circle cx="148" cy="286" r="7" fill="#1e1e1e" stroke="#e8001d" stroke-width="1.5"/>
+        <!-- Tire -->
+        <circle cx="148" cy="286" r="44" fill="none" stroke="#111" stroke-width="12"/>
+        <circle cx="148" cy="286" r="44" fill="none" stroke="#222" stroke-width="1"/>
+        <!-- Brake caliper -->
+        <path d="M 113 278 L 113 294 Q 113 298 118 298 L 128 298 L 128 274 L 118 274 Q 113 274 113 278 Z"
+          fill="#e8001d" opacity="0.9"/>
+
+        <!-- REAR WHEEL -->
+        <circle cx="422" cy="286" r="44" fill="#0d0d0d" stroke="#2a2a2a" stroke-width="2"/>
+        <circle cx="422" cy="286" r="36" fill="#0a0a0a" stroke="#222" stroke-width="1.5"/>
+        <g stroke="#444" stroke-width="3" stroke-linecap="round">
+          <line x1="422" y1="250" x2="422" y2="268"/>
+          <line x1="422" y1="304" x2="422" y2="322"/>
+          <line x1="387" y1="265" x2="401" y2="274"/>
+          <line x1="443" y1="298" x2="457" y2="307"/>
+          <line x1="391" y1="305" x2="404" y2="296"/>
+          <line x1="440" y1="274" x2="453" y2="265"/>
+        </g>
+        <circle cx="422" cy="286" r="16" fill="#141414" stroke="#333" stroke-width="1.5"/>
+        <circle cx="422" cy="286" r="7" fill="#1e1e1e" stroke="#e8001d" stroke-width="1.5"/>
+        <circle cx="422" cy="286" r="44" fill="none" stroke="#111" stroke-width="12"/>
+        <circle cx="422" cy="286" r="44" fill="none" stroke="#222" stroke-width="1"/>
+        <path d="M 455 278 L 455 294 Q 455 298 460 298 L 470 298 L 470 274 L 460 274 Q 455 274 455 278 Z"
+          fill="#e8001d" opacity="0.9"/>
+
+        <!-- Ground reflection line -->
+        <path d="M 108 304 Q 280 316 502 304" stroke="#e8001d" stroke-width="1" fill="none" opacity="0.15"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- UPCOMING -->
+  <div class="section" style="padding-bottom:0">
+    <div class="upcoming-banner">
+      <div class="upcoming-label"><i class="ti ti-clock" style="margin-right:4px"></i>NEXT UP</div>
+      <div class="upcoming-divider"></div>
+      <div class="upcoming-scroll" id="upcoming-events"></div>
+    </div>
+  </div>
+
+  <!-- UPDATE ANNOUNCEMENT BANNER -->
+  <div class="update-banner" id="update-banner" style="display:none">
+    <div class="update-banner-inner">
+      <div class="update-banner-icon"><i class="ti ti-bell-ringing"></i></div>
+      <div class="update-banner-body">
+        <div class="update-banner-title">🆕 サイト更新のお知らせ</div>
+        <div class="update-banner-list" id="update-banner-list"></div>
+      </div>
+      <button class="update-banner-close" onclick="document.getElementById('update-banner').style.display='none'"><i class="ti ti-x"></i></button>
+    </div>
+  </div>
+
+  <!-- 今月 QUICK SECTION -->
+  <div class="section" style="padding-bottom:0" id="quick-section">
+    <div class="quick-box" id="month-box">
+      <div class="quick-box-header">
+        <i class="ti ti-calendar-month quick-box-icon"></i>
+        <div class="quick-box-title">今月のイベント</div>
+        <div class="quick-box-count" id="month-count">0件</div>
+      </div>
+      <div class="quick-box-body" id="month-events"></div>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="section" style="padding-bottom: 0">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px">
+      <div class="year-tabs">
+        <button class="year-tab active" data-year="2026">2026</button>
+        <button class="year-tab" data-year="2025">2025</button>
+        <button class="year-tab" data-year="2024">2024</button>
+        <button class="year-tab" data-year="2023">2023</button>
+      </div>
+      <div id="listmode-toggle" class="view-toggle" style="display:flex">
+        <button class="view-btn active" data-mode="grid"><i class="ti ti-layout-grid"></i> グリッド</button>
+        <button class="view-btn" data-mode="list"><i class="ti ti-list"></i> リスト</button>
+      </div>
+    </div>
+
+    <!-- FILTER BAR -->
+    <div id="filter-bar" class="filters">
+      <div class="filters-row">
+        <div class="filter-group">
+          <div class="filter-label">エリア</div>
+          <select class="filter-select" id="region-select">
+            <option value="すべて">すべての地域</option>
+            <option value="北海道">北海道</option>
+            <option value="東北">東北</option>
+            <option value="関東">関東</option>
+            <option value="中部">中部</option>
+            <option value="近畿">近畿</option>
+            <option value="中国">中国</option>
+            <option value="四国">四国</option>
+            <option value="九州">九州</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <div class="filter-label">検索</div>
+          <div class="search-wrap">
+            <i class="ti ti-search search-icon"></i>
+            <input type="text" class="search-input" id="search-input" placeholder="イベント名・会場で検索">
+          </div>
+        </div>
+      </div>
+      <div class="filter-chips">
+        <div class="filter-label" style="align-self:center;margin-right:4px">カテゴリ:</div>
+        <div class="filter-chip active" data-type="category" data-val="すべて">すべて</div>
+        <div class="filter-chip" data-type="category" data-val="レース">🏁 レース</div>
+        <div class="filter-chip" data-type="category" data-val="カスタム・チューニング">🔧 カスタム</div>
+        <div class="filter-chip" data-type="category" data-val="モーターショー">🚗 モーターショー</div>
+        <div class="filter-chip" data-type="category" data-val="クラシックカー">🏛 クラシック</div>
+        <div class="filter-chip" data-type="category" data-val="カーミーティング">🤝 ミーティング</div>
+        <div class="filter-chip" data-type="category" data-val="オフロード・SUV">🏔 オフロード</div>
+      </div>
+      <div class="filter-chips" style="margin-top:8px">
+        <div class="filter-label" style="align-self:center;margin-right:4px">月別:</div>
+        <div class="filter-chip active" data-type="month" data-val="all">全期間</div>
+        <div class="filter-chip" data-type="month" data-val="1">1月</div>
+        <div class="filter-chip" data-type="month" data-val="2">2月</div>
+        <div class="filter-chip" data-type="month" data-val="3">3月</div>
+        <div class="filter-chip" data-type="month" data-val="4">4月</div>
+        <div class="filter-chip" data-type="month" data-val="5">5月</div>
+        <div class="filter-chip" data-type="month" data-val="6">6月</div>
+        <div class="filter-chip" data-type="month" data-val="7">7月</div>
+        <div class="filter-chip" data-type="month" data-val="8">8月</div>
+        <div class="filter-chip" data-type="month" data-val="9">9月</div>
+        <div class="filter-chip" data-type="month" data-val="10">10月</div>
+        <div class="filter-chip" data-type="month" data-val="11">11月</div>
+        <div class="filter-chip" data-type="month" data-val="12">12月</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EVENTS CONTENT -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title" id="section-title">イベント一覧</div>
+      <div class="section-line"></div>
+      <div class="section-count" id="event-count">— 件</div>
+    </div>
+    <div id="main-content"></div>
+  </div>
+
+</main>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-top">
+    <div class="footer-brand">
+      <div class="footer-logo">
+        <div class="footer-logo-mark">CJ</div>
+        <div class="footer-logo-name">CARJAM</div>
+      </div>
+      <p class="footer-tagline">日本全国の車イベント情報を<br>ひとつのサイトで。<br>車好きのための、車好きによる情報プラットフォーム。</p>
+    </div>
+    <div>
+      <div class="footer-section-title">コンテンツ</div>
+      <div class="footer-link-list">
+        <a class="footer-link" href="blog.html"><i class="ti ti-tool" style="font-size:13px"></i>カスタム情報</a>
+        <a class="footer-link" href="blog.html"><i class="ti ti-alert-triangle" style="font-size:13px"></i>車のトラブル解消</a>
+        <a class="footer-link" href="submit.html"><i class="ti ti-circle-plus" style="font-size:13px"></i>イベント掲載申請</a>
+        <a class="footer-link" href="sponsor.html"><i class="ti ti-star" style="font-size:13px"></i>スポンサー・掲載依頼</a>
+        <a class="footer-link" href="https://line.me/R/ti/p/@414xknuy" target="_blank"><i class="ti ti-brand-line" style="font-size:13px"></i>公式LINE (@414xknuy)</a>
+      </div>
+    </div>
+    <div>
+      <div class="footer-section-title">運営会社</div>
+      <div class="footer-usdm-card">
+        <div class="footer-usdm-badge">OFFICIAL OPERATOR</div>
+<div class="footer-usdm-name">株式会社USDM</div>
+        <p class="footer-usdm-desc">自動車業界のデジタルトランスフォーメーションを推進する株式会社USDMが運営する、車好きのための情報プラットフォームです。</p>
+        <a href="https://usdm.manus.space/" target="_blank" class="footer-usdm-btn">
+          <i class="ti ti-external-link" style="font-size:13px"></i>公式サイトへ
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div>© 2026 CARJAM by 株式会社USDM. All Rights Reserved.</div>
+    <div class="footer-bottom-right">
+      <a href="https://usdm.manus.space/" target="_blank" class="footer-link">株式会社USDM 公式HP</a>
+      <a href="#" class="footer-link">プライバシーポリシー</a>
+      <a href="#" class="footer-link">お問い合わせ</a>
+    </div>
+  </div>
+</footer>
+
+<!-- LINE — 最下部 -->
+<div class="line-banner">
+  <div class="line-banner-inner">
+    <div class="line-banner-left">
+      <div class="line-icon-wrap">
+        <svg viewBox="0 0 48 48" width="40" height="40"><rect width="48" height="48" rx="10" fill="#06C755"/><path d="M24 10C15.16 10 8 16.28 8 24.04c0 7.02 6.23 12.9 14.64 14.04.57.12 1.34.37 1.54.85.17.44.11 1.12.06 1.56l-.25 1.5c-.08.44-.35 1.72 1.51.94 1.86-.78 10.03-5.9 13.69-10.1C41.44 30.4 40 27.36 40 24.04 40 16.28 32.84 10 24 10z" fill="white"/></svg>
+      </div>
+      <div>
+        <div class="line-banner-label">株式会社USDM 公式LINE</div>
+        <div class="line-banner-title">カーパーツ・カスタムのご相談はこちら</div>
+        <div class="line-banner-desc">お探しのカーパーツ、カスタムパーツのご相談をLINEで気軽にどうぞ。<br>USDMのプロスタッフが丁寧にお答えします。</div>
+      </div>
+    </div>
+    <div class="line-banner-right">
+      <div class="line-id-badge">LINE ID: @414xknuy</div>
+      <a href="https://line.me/R/ti/p/@414xknuy" target="_blank" class="line-add-btn">
+        <svg viewBox="0 0 20 20" width="16" height="16" fill="white"><path d="M10 2C5.58 2 2 5.16 2 9.02c0 3.51 3.11 6.45 7.32 7.02.28.06.67.18.77.42.08.22.06.56.03.78l-.12.75c-.04.22-.18.86.76.47.93-.39 5.01-2.95 6.84-5.05C18.22 12.2 17.5 10.68 17.5 9.02 18 5.16 14.42 2 10 2z"/></svg>
+        友だち追加
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div style="flex:1;min-width:0">
+        <div id="modal-cat-tag" style="margin-bottom:8px"></div>
+        <div class="modal-title" id="modal-title"></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0;align-items:flex-start">
+        <button class="modal-fav-btn" id="modal-fav-btn" onclick="toggleFavFromModal()">
+          <i class="ti ti-heart" id="modal-fav-icon"></i>
+        </button>
+        <button class="modal-close" id="modal-close"><i class="ti ti-x"></i></button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-info-grid">
+        <div class="modal-info-item">
+          <div class="modal-info-label"><i class="ti ti-calendar" style="margin-right:4px"></i>開催日</div>
+          <div class="modal-info-value" id="modal-date"></div>
+        </div>
+        <div class="modal-info-item">
+          <div class="modal-info-label"><i class="ti ti-map-pin" style="margin-right:4px"></i>都道府県</div>
+          <div class="modal-info-value" id="modal-pref"></div>
+        </div>
+        <div class="modal-info-item">
+          <div class="modal-info-label"><i class="ti ti-building" style="margin-right:4px"></i>会場</div>
+          <div class="modal-info-value" id="modal-venue"></div>
+        </div>
+        <div class="modal-info-item">
+          <div class="modal-info-label"><i class="ti ti-tag" style="margin-right:4px"></i>カテゴリ</div>
+          <div class="modal-info-value" id="modal-cat"></div>
+        </div>
+        <div class="modal-info-item">
+          <div class="modal-info-label"><i class="ti ti-map" style="margin-right:4px"></i>エリア</div>
+          <div class="modal-info-value" id="modal-region"></div>
+        </div>
+      </div>
+      <p class="modal-desc" id="modal-desc"></p>
+      <!-- シェア & カレンダー -->
+      <div class="modal-actions">
+        <div class="modal-share-label">シェア</div>
+        <button class="modal-share-x" id="modal-share-x"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.849L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> X</button>
+        <a class="modal-share-line" id="modal-share-line" href="#" target="_blank"><svg width="13" height="13" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 5.48 2 9.5c0 3.58 3.16 6.59 7.44 7.17.29.06.68.19.78.43.09.22.06.57.03.79l-.13.77c-.04.22-.18.87.77.47.94-.4 5.09-3 6.95-5.13C19.44 12.37 22 11.05 22 9.5 22 5.48 17.52 2 12 2z"/></svg> LINE</a>
+        <a class="modal-share-gcal" id="modal-gcal" href="#" target="_blank"><i class="ti ti-calendar-plus" style="font-size:13px"></i> Googleカレンダー</a>
+      </div>
+      <div class="modal-footer">
+        <a href="#" target="_blank" class="btn-primary" id="modal-link"><i class="ti ti-external-link" style="margin-right:6px"></i>イベント詳細</a>
+        <button class="btn-secondary" onclick="document.getElementById('modal').classList.remove('open')">閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Mobile Bottom Nav -->
+<div style="display:none;position:fixed;bottom:0;left:0;right:0;background:rgba(8,8,8,0.95);border-top:1px solid rgba(255,255,255,0.08);padding:8px 0;z-index:99" id="mobile-nav">
+  <div style="display:flex;justify-content:space-around">
+    <button class="mobile-nav-btn" data-view="list" style="display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:var(--red);padding:4px 16px">
+      <i class="ti ti-list" style="font-size:20px"></i>一覧
+    </button>
+    <button class="mobile-nav-btn" data-view="calendar" style="display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:var(--text-muted);padding:4px 16px">
+      <i class="ti ti-calendar" style="font-size:20px"></i>カレンダー
+    </button>
+    <button class="mobile-nav-btn" data-view="map" style="display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:var(--text-muted);padding:4px 16px">
+      <i class="ti ti-map" style="font-size:20px"></i>マップ
+    </button>
+  </div>
+</div>
+
+<style>
+@media (max-width: 768px) {
+  #mobile-nav { display: block !important; }
+  .main { padding-bottom: 64px; }
+}
+</style>
+
+<script src="data/new-events.js"></script>
+<script src="data/new-blog-posts.js"></script>
+<script src="data/updates.js"></script>
+<script src="js/events-data.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
