@@ -66,7 +66,7 @@ function Get-PrefectureFromName($name) {
         "埼玉|さいたま|浦和|大宮" = "埼玉県"
         "千葉|幕張|柏" = "千葉県"
         "東京|品川|渋谷|新宿|秋葉原|羽田" = "東京都"
-        "横浜|神奈川|川崎|湘南" = "神奈川県"
+        "横浜|神奈川|川崎|湘南|箱根|大観山|厚木|相模" = "神奈川県"
         "新潟|国上|長岡|SORAIRO" = "新潟県"
         "富山" = "富山県"
         "金沢|石川|能登|北陸" = "石川県"
@@ -134,34 +134,33 @@ if (-not $existingNewEvents) { $existingNewEvents = @() }
 $discoveredEvents = @()
 $newUrls = @()
 
-# ===== mach5.jp =====
+# ===== mach5.jp (areaevent - 全都道府県・今日以降) =====
 Write-Log "mach5.jp を取得中..."
 try {
-    $res = Invoke-WebRequest -Uri "https://www.mach5.jp/eventmania/allevent.php" -UseBasicParsing -TimeoutSec 30
+    $res = Invoke-WebRequest -Uri "https://www.mach5.jp/eventmania/areaevent.php?afterToday&pref=null" -UseBasicParsing -TimeoutSec 30
     $html = $res.Content
-
-    $trMatches = [regex]::Matches($html, '<tr[^>]*>([\s\S]*?)</tr>', 'IgnoreCase')
-    foreach ($tr in $trMatches) {
-        $row = $tr.Groups[1].Value
-        if ($row -match '<a\s+href="([^"]+)"[^>]*>([^<]+)</a>') {
-            $href = $Matches[1].Trim()
-            $name = Decode-Html $Matches[2]
-            $date = ""
-            if ($row -match '(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})') {
-                $date = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
-            }
-            $pref = Get-PrefectureFromName $name
-            if (-not $pref) { $pref = Get-Prefecture $row }
-            if ($href -notmatch '^https?://') {
-                $href = "https://www.mach5.jp/eventmania/" + $href.TrimStart('/')
-            }
-            if ($name -and $date -and ($href -notin $knownUrls)) {
-                $discoveredEvents += [PSCustomObject]@{ name=$name; date=$date; prefecture=$pref; venue=""; url=$href; source="mach5" }
-                $newUrls += $href
-            }
+    $before = $discoveredEvents.Count
+    # 各イベントは id="title_date" ブロック内: <a href="URL">タイトル</a> + YYYY/M/D
+    $evBlocks = [regex]::Matches($html, '(?s)id="title_date">(.*?)(?=id="title_date"|</table|$)', 'IgnoreCase')
+    foreach ($ev in $evBlocks) {
+        $b = $ev.Groups[1].Value
+        $ename = ""; $eurl = ""
+        if ($b -match '<a[^>]+href="(https?://[^"]+)"[^>]*>([^<]{3,80})</a>') {
+            $eurl = $Matches[1]; $ename = Decode-Html $Matches[2]
+        }
+        $edate = ""
+        if ($b -match '(\d{4})/(\d{1,2})/(\d{1,2})') {
+            $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
+        }
+        $plain = ($b -replace '<[^>]+>',' ' -replace '\s+',' ').Trim()
+        $epref = Get-PrefectureFromName $plain
+        if (-not $epref) { $epref = Get-Prefecture $plain }
+        if ($ename -and $edate -and $eurl -and ($eurl -notin $knownUrls)) {
+            $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=""; url=$eurl; source="mach5" }
+            $newUrls += $eurl
         }
     }
-    Write-Log "mach5.jp: $($discoveredEvents.Count) 件の新規候補"
+    Write-Log "mach5.jp: $($discoveredEvents.Count - $before) 件の新規候補"
 } catch {
     Write-Log "mach5.jp エラー: $_"
 }
@@ -171,29 +170,35 @@ Write-Log "racry.jp を取得中..."
 try {
     $res = Invoke-WebRequest -Uri "https://racry.jp/" -UseBasicParsing -TimeoutSec 30
     $html = $res.Content
-    # 各イベントリンクを取得して詳細ページを解析
-    $links = [regex]::Matches($html, 'href="(https://racry\.jp/event/[^"]+)"') |
-             ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
     $before = $discoveredEvents.Count
-    foreach ($link in $links) {
-        if ($link -in $knownUrls) { continue }
+    # 商品詳細ページ URL: /products/detail/N — リストページから抽出
+    $prodBlocks = [regex]::Matches($html, '(?s)product__items--pic">(.*?)(?=product__items--pic|</main|$)', 'IgnoreCase')
+    foreach ($pb in $prodBlocks) {
+        $b = $pb.Groups[1].Value
+        $eurl = if ($b -match 'href="(https://racry\.jp/products/detail/\d+)"') { $Matches[1] } else { "" }
+        if (-not $eurl -or $eurl -in $knownUrls) { continue }
+        $plain = ($b -replace '<[^>]+>',' ' -replace '\s+',' ').Trim()
+        $edate = ""
+        if ($plain -match '(\d{4})年(\d{1,2})月(\d{1,2})日') {
+            $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
+        }
         try {
-            $detail = Invoke-WebRequest -Uri $link -UseBasicParsing -TimeoutSec 20
+            $detail = Invoke-WebRequest -Uri $eurl -UseBasicParsing -TimeoutSec 15
             $dhtml = $detail.Content
             $ename = ""
-            if ($dhtml -match '<h1[^>]*>\s*([^<]+)\s*</h1>') { $ename = Decode-Html $Matches[1] }
-            $edate = ""
-            if ($dhtml -match '(\d{4})年(\d{1,2})月(\d{1,2})日') {
+            if ($dhtml -match '<title>([^|｜<]{3,80})') { $ename = Decode-Html ($Matches[1].Trim() -replace '[|｜].*$','').Trim() }
+            if (-not $ename -and $dhtml -match '<h1[^>]*>([^<]+)</h1>') { $ename = Decode-Html $Matches[1].Trim() }
+            if (-not $edate -and $dhtml -match '(\d{4})年(\d{1,2})月(\d{1,2})日') {
                 $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
             }
-            $epref = Get-PrefectureFromName $ename
-            if (-not $epref) { $epref = Get-Prefecture $dhtml }
-            if ($ename -and $edate) {
-                $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=""; url=$link; source="racry" }
-                $newUrls += $link
+            $epref = Get-PrefectureFromName "$ename $plain"
+            if (-not $epref) { $epref = Get-Prefecture "$plain $dhtml" }
+            if ($ename.Length -ge 3 -and $edate) {
+                $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=""; url=$eurl; source="racry" }
+                $newUrls += $eurl
             }
-            Start-Sleep -Milliseconds 200
         } catch {}
+        Start-Sleep -Milliseconds 300
     }
     Write-Log "racry.jp: $($discoveredEvents.Count - $before) 件の新規候補"
 } catch {
@@ -206,34 +211,33 @@ try {
     $res = Invoke-WebRequest -Uri "https://americarsandtrucks.com/jp/events/" -UseBasicParsing -TimeoutSec 30
     $html = $res.Content
     $before = $discoveredEvents.Count
-    # <article> or event block with h3 title + date + location
-    $blocks = [regex]::Matches($html, '(?s)<(?:article|div)[^>]*class="[^"]*event[^"]*"[^>]*>(.*?)</(?:article|div)>', 'IgnoreCase')
-    if ($blocks.Count -eq 0) {
-        # fallback: find h3 blocks
-        $blocks = [regex]::Matches($html, '(?s)<h3[^>]*>(.*?)</h3>', 'IgnoreCase')
+    $yr = (Get-Date).Year
+    # イベントカード: <article> または class="event-card" の div
+    $cards = [regex]::Matches($html, '(?s)<article[^>]*>(.*?)</article>', 'IgnoreCase')
+    if ($cards.Count -eq 0) {
+        $cards = [regex]::Matches($html, '(?s)<div[^>]*class="[^"]*event[^"]*"[^>]*>(.*?)</div>', 'IgnoreCase')
     }
-    foreach ($block in $blocks) {
-        $btext = $block.Groups[1].Value
-        $ename = ""
-        if ($btext -match '<[^>]+>([^<]{5,80})<') { $ename = Decode-Html $Matches[1] }
-        elseif ($btext -match '([^<]{5,80})') { $ename = Decode-Html $Matches[1].Trim() }
-        if (-not $ename) { continue }
-        # date in surrounding context
-        $ctx = $html.Substring([Math]::Max(0, $block.Index - 500), [Math]::Min(1000, $html.Length - $block.Index))
+    foreach ($card in $cards) {
+        $inner = $card.Groups[1].Value
+        $ename = if ($inner -match '<h3[^>]*>([^<]+)</h3>') { Decode-Html $Matches[1].Trim() }
+                 elseif ($inner -match '<h2[^>]*>([^<]+)</h2>') { Decode-Html $Matches[1].Trim() }
+                 else { "" }
+        if (-not $ename -or $ename.Length -lt 3) { continue }
+        $plain = ($inner -replace '<[^>]+>',' ' -replace '\s+',' ').Trim()
         $edate = ""
-        if ($ctx -match '(\d{4})年(\d{1,2})月(\d{1,2})日') {
-            $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
-        } elseif ($ctx -match '(\d{1,2})月\s*[·・]\s*(\d{1,2})') {
-            $yr = (Get-Date).Year
+        # "1月 · 9" or "1月 · 9-11" format
+        if ($plain -match '(\d+)月\s*[·・·]\s*(\d+)') {
             $edate = "$yr-$($Matches[1].PadLeft(2,'0'))-$($Matches[2].PadLeft(2,'0'))"
+        } elseif ($plain -match '(\d{4})年(\d{1,2})月(\d{1,2})日') {
+            $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
         }
-        $eurl = ""
-        if ($ctx -match 'href="(https?://[^"]+)"') { $eurl = $Matches[1] }
-        $epref = Get-PrefectureFromName "$ename $ctx"
-        if (-not $epref) { $epref = Get-Prefecture $ctx }
-        if ($ename -and $edate -and $eurl -and ($eurl -notin $knownUrls)) {
+        $eurl = if ($inner -match 'href="(https?://[^"]+)"') { $Matches[1] } else { "https://americarsandtrucks.com/jp/events/" }
+        $epref = Get-PrefectureFromName "$ename $plain"
+        if (-not $epref) { $epref = Get-Prefecture $plain }
+        $key = "americars_$ename"
+        if ($ename -and $edate -and ($key -notin $knownUrls)) {
             $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=""; url=$eurl; source="americars" }
-            $newUrls += $eurl
+            $newUrls += $key
         }
     }
     Write-Log "americarsandtrucks.com: $($discoveredEvents.Count - $before) 件の新規候補"
@@ -278,26 +282,31 @@ try {
     $res = Invoke-WebRequest -Uri "https://cos-cam.work/?page_id=969" -UseBasicParsing -TimeoutSec 30
     $html = $res.Content
     $before = $discoveredEvents.Count
-    # h3 に月/日, テキストに都道府県, a タグにタイトルとリンク
-    $blocks = [regex]::Matches($html, '(?s)<h3[^>]*>(.*?)</h3>\s*(.*?)(?=<h3|</section|$)', 'IgnoreCase')
-    foreach ($block in $blocks) {
-        $dateStr = $block.Groups[1].Value -replace '<[^>]+>',''
-        $rest = $block.Groups[2].Value
-        $edate = ""
-        $yr = (Get-Date).Year
-        if ($dateStr -match '(\d{1,2})[^\d]+(\d{1,2})') {
-            $edate = "$yr-$($Matches[1].PadLeft(2,'0'))-$($Matches[2].PadLeft(2,'0'))"
-        }
-        $ename = ""
-        if ($rest -match '<a[^>]+>([^<]{5,80})</a>') { $ename = Decode-Html $Matches[1] }
-        $eurl = ""
-        if ($rest -match 'href="(https?://[^"]+)"') { $eurl = $Matches[1] }
-        elseif ($rest -match "href='(https?://[^']+)'") { $eurl = $Matches[1] }
-        $epref = Get-PrefectureFromName $rest
-        if (-not $epref) { $epref = Get-Prefecture $rest }
-        if ($ename -and $edate -and $eurl -and ($eurl -notin $knownUrls)) {
-            $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=""; url=$eurl; source="coscam" }
-            $newUrls += $eurl
+    $yr_now = (Get-Date).Year; $mo_now = (Get-Date).Month
+    # 月ブロック: id="202607" など (年+月の6桁)
+    $monthBlocks = [regex]::Matches($html, '(?s)id="(\d{4})(\d{2})"[^>]*>(.*?)(?=id="\d{6}"|</body|$)', 'IgnoreCase')
+    foreach ($mb in $monthBlocks) {
+        $yr = $mb.Groups[1].Value; $mo = $mb.Groups[2].Value
+        if ([int]$yr -lt $yr_now -or ([int]$yr -eq $yr_now -and [int]$mo -lt $mo_now)) { continue }
+        $mbContent = $mb.Groups[3].Value
+        # eventid リンク: href="...eventid=NNN..."
+        $evLinks = [regex]::Matches($mbContent, 'href="[^"]*eventid=(\d+)[^"]*"[^>]*>([^<]{3,60})</a>', 'IgnoreCase')
+        foreach ($ev in $evLinks) {
+            $evid = $ev.Groups[1].Value
+            $ename = Decode-Html $ev.Groups[2].Value.Trim()
+            $evurl = "https://cos-cam.work/?page_id=2&eventid=$evid"
+            if ($evurl -in $knownUrls) { continue }
+            # リンク手前のテキストから日付 (M / D) を取得
+            $before_text = $mbContent.Substring(0, [Math]::Min($ev.Index + $ev.Length, $mbContent.Length))
+            $plain_before = ($before_text -replace '<[^>]+>',' ' -replace '\s+',' ')
+            $dy = "1"
+            if ($plain_before -match '(\d{1,2})\s*/\s*(\d{1,2})\s*日') { $dy = $Matches[2] }
+            elseif ($plain_before -match '(\d{1,2})\s*/\s*(\d{1,2})') { $dy = $Matches[2] }
+            $edate = "$yr-$($mo.PadLeft(2,'0'))-$($dy.PadLeft(2,'0'))"
+            $epref = Get-PrefectureFromName $ename
+            if (-not $epref) { $epref = Get-Prefecture $plain_before }
+            $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=""; url=$evurl; source="coscam" }
+            $newUrls += $evurl
         }
     }
     Write-Log "cos-cam.work: $($discoveredEvents.Count - $before) 件の新規候補"
@@ -311,31 +320,39 @@ try {
     $res = Invoke-WebRequest -Uri "https://f-designpro.com/event/" -UseBasicParsing -TimeoutSec 30
     $html = $res.Content
     $before = $discoveredEvents.Count
-    # [開催日] ラベルと [会場] ラベルで区切られたブロックを解析
-    $blocks = [regex]::Matches($html, '(?s)(?:\[開催日\]|【開催日】)(.*?)(?=\[開催日\]|【開催日】|$)', 'IgnoreCase')
-    foreach ($block in $blocks) {
-        $btext = $block.Groups[1].Value
-        $edate = ""
-        if ($btext -match '(\d{4})年(\d{1,2})月(\d{1,2})日') {
-            $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
-        } elseif ($btext -match '(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})') {
-            $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
-        }
-        $ename = ""
-        if ($btext -match '<(?:h\d|strong|b)[^>]*>([^<]{5,80})</(?:h\d|strong|b)>') { $ename = Decode-Html $Matches[1] }
-        elseif ($btext -match '<a[^>]+>([^<]{5,80})</a>') { $ename = Decode-Html $Matches[1] }
-        $eurl = ""
-        if ($btext -match 'href="(https?://[^"]+)"') { $eurl = $Matches[1] }
-        $evenue = ""
-        if ($btext -match '(?:\[会場\]|【会場】)\s*([^\[【\r\n]{3,50})') { $evenue = Decode-Html $Matches[1].Trim() }
-        $epref = Get-PrefectureFromName "$ename $evenue"
-        if (-not $epref) { $epref = Get-Prefecture $btext }
-        if ($ename -and $edate -and ($eurl -notin $knownUrls -or -not $eurl)) {
-            $linkKey = if ($eurl) { $eurl } else { "fdesign_$ename" }
-            if ($linkKey -notin $knownUrls) {
-                $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=$evenue; url=$(if ($eurl) { $eurl } else { "https://f-designpro.com/event/" }); source="fdesign" }
-                if ($eurl) { $newUrls += $eurl }
-            }
+    $yr = (Get-Date).Year; $today_date = (Get-Date).Date
+    # スクリプト・スタイル除去後にプレーンテキスト化
+    $stripped = $html -replace '(?s)<style[^>]*>.*?</style>','' -replace '(?s)<script[^>]*>.*?</script>',''
+    $plain = ($stripped -replace '<[^>]+>',' ' -replace '[ \t]+',' ')
+    # M/D[区切り]イベント名[スペース]会場名 の行形式を解析
+    # 例: "7/5 第13回箱根REMT2026 大観山スカイラウンジ"
+    $lines = $plain -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^\d{1,2}/\d{1,2}' }
+    foreach ($line in $lines) {
+        if ($line -match '^(\d{1,2})/(\d{1,2})[-–\s]+(.+)$') {
+            $mo = $Matches[1]; $dy = $Matches[2]; $rest = $Matches[3].Trim()
+        } elseif ($line -match '^(\d{1,2})/(\d{1,2})\s+(.+)$') {
+            $mo = $Matches[1]; $dy = $Matches[2]; $rest = $Matches[3].Trim()
+        } else { continue }
+        try {
+            $edate_obj = [datetime]"$yr-$($mo.PadLeft(2,'0'))-$($dy.PadLeft(2,'0'))"
+            if ($edate_obj -lt $today_date) { continue }
+            $edate = $edate_obj.ToString("yyyy-MM-dd")
+        } catch { continue }
+        # F-DESIGN出展 などの注釈を除去
+        $rest = ($rest -replace '\s*F-DESIGN.*$','').Trim()
+        # イベント名と会場名を分割 (スペース2個以上 or 最後のスペース区切り)
+        $ename = ""; $evenue = ""
+        if ($rest -match '^(.{4,50})\s{2,}(.{3,40})$') {
+            $ename = $Matches[1].Trim(); $evenue = $Matches[2].Trim()
+        } elseif ($rest -match '^([^\s]{4,}(?:\s[^\s]{1,6}){0,3})\s+([^\s].{2,})$') {
+            $ename = $Matches[1].Trim(); $evenue = $Matches[2].Trim()
+        } else { $ename = $rest.Trim() }
+        $key = "fdesign_${yr}_${mo}_${dy}_" + ($ename -replace '[^\w\p{L}]','')
+        if ($ename.Length -ge 3 -and ($key -notin $knownUrls)) {
+            $epref = Get-PrefectureFromName "$ename $evenue"
+            if (-not $epref) { $epref = Get-Prefecture "$ename $evenue" }
+            $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=$evenue; url="https://f-designpro.com/event/"; source="fdesign" }
+            $newUrls += $key
         }
     }
     Write-Log "f-designpro.com: $($discoveredEvents.Count - $before) 件の新規候補"
@@ -349,42 +366,33 @@ try {
     $res = Invoke-WebRequest -Uri "https://itasha-tengoku.yaesu-net.co.jp/event-calendar/" -UseBasicParsing -TimeoutSec 30
     $html = $res.Content
     $before = $discoveredEvents.Count
-    # 各イベントブロック: 日付・都道府県・タイトル・リンクが div/li 内に並ぶ
-    # パターン: 年月日テキスト → 都道府県テキスト → イベント名 → a href
-    $evBlocks = [regex]::Matches($html, '(?s)(\d{4})年(\d{1,2})月(\d{1,2})日[^<]*(?:<[^>]+>[^<]*)*?([都道府県]{2,3})[^\r\n<]*(?:<[^>]+>[^<]*)*?href="(https?://[^"]+)"[^>]*>([^<]{4,80})</a>', 'IgnoreCase')
-    foreach ($ev in $evBlocks) {
-        $yr = $ev.Groups[1].Value; $mo = $ev.Groups[2].Value; $dy = $ev.Groups[3].Value
-        $edate = "$yr-$($mo.PadLeft(2,'0'))-$($dy.PadLeft(2,'0'))"
-        $eurl = $ev.Groups[5].Value
-        $ename = Decode-Html $ev.Groups[6].Value.Trim()
+    # <a href="URL">内テキスト</a> ブロック — 内テキストに年月日・都道府県・イベント名が含まれる
+    # 例: "2026年 7月5日 （日） 埼玉県 車ぷれ 2026年7月5日（日） 久喜市役所鷲宮行政センター駐車場 ..."
+    $aBlocks = [regex]::Matches($html, '(?s)<a\s+href="(https?://[^"]+)"[^>]*>(.*?)</a>', 'IgnoreCase')
+    foreach ($ab in $aBlocks) {
+        $inner = $ab.Groups[2].Value
+        if ($inner -notmatch '\d{4}年') { continue }
+        $eurl = $ab.Groups[1].Value
         if ($eurl -in $knownUrls) { continue }
-        $epref = Get-PrefectureFromName "$ename $($ev.Groups[4].Value)"
-        if (-not $epref) { $epref = Get-Prefecture $ev.Groups[4].Value }
-        if ($ename.Length -ge 4) {
+        $plain = ($inner -replace '<[^>]+>',' ' -replace '\s+',' ').Trim()
+        $edate = ""
+        if ($plain -match '(\d{4})年\s*(\d{1,2})月(\d{1,2})日') {
+            $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
+        }
+        $ename = ""
+        # パターン: ） [都道府県] [イベント名] YYYY年 または ） [イベント名] YYYY年
+        if ($plain -match '[）)]\s+([^\s]{2,5}[県都道府])\s+(.{3,60}?)\s+\d{4}年') {
+            $epref_text = $Matches[1]; $ename = $Matches[2].Trim()
+            $epref = Get-PrefectureFromName "$ename $epref_text"
+            if (-not $epref) { $epref = Get-Prefecture $epref_text }
+        } elseif ($plain -match '[）)]\s+(.{4,60}?)\s+\d{4}年') {
+            $ename = $Matches[1].Trim()
+            $epref = Get-PrefectureFromName $plain
+            if (-not $epref) { $epref = Get-Prefecture $plain }
+        }
+        if ($ename.Length -ge 3 -and $edate) {
             $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=""; url=$eurl; source="itasha" }
             $newUrls += $eurl
-        }
-    }
-    # フォールバック: シンプルリンク抽出
-    if (($discoveredEvents.Count - $before) -eq 0) {
-        $links = [regex]::Matches($html, 'href="(https://itasha-tengoku[^"]+)"[^>]*>([^<]{5,80})</a>')
-        foreach ($lm in $links) {
-            $eurl = $lm.Groups[1].Value
-            $ename = Decode-Html $lm.Groups[2].Value.Trim()
-            if ($eurl -in $knownUrls -or $ename.Length -lt 5) { continue }
-            # URLの周辺から日付を探す
-            $pos = $lm.Index
-            $ctx = $html.Substring([Math]::Max(0,$pos-300), [Math]::Min(400,$html.Length-$pos))
-            $edate = ""
-            if ($ctx -match '(\d{4})年(\d{1,2})月(\d{1,2})日') {
-                $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
-            }
-            $epref = Get-PrefectureFromName $ctx
-            if (-not $epref) { $epref = Get-Prefecture $ctx }
-            if ($edate) {
-                $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=""; url=$eurl; source="itasha" }
-                $newUrls += $eurl
-            }
         }
     }
     Write-Log "itasha-tengoku.yaesu-net.co.jp: $($discoveredEvents.Count - $before) 件の新規候補"
@@ -438,28 +446,30 @@ try {
     $res = Invoke-WebRequest -Uri "https://motorzone.co.jp/event/eventinfo.html" -UseBasicParsing -TimeoutSec 30
     $html = $res.Content
     $before = $discoveredEvents.Count
-    $rows = [regex]::Matches($html, '(?s)<tr[^>]*>(.*?)</tr>', 'IgnoreCase')
-    foreach ($row in $rows) {
-        $cells = [regex]::Matches($row.Groups[1].Value, '(?s)<td[^>]*>(.*?)</td>', 'IgnoreCase')
-        if ($cells.Count -lt 3) { continue }
-        $ename = Decode-Html ($cells[0].Groups[1].Value -replace '<[^>]+>','').Trim()
-        $evenue = Decode-Html ($cells[1].Groups[1].Value -replace '<[^>]+>','').Trim()
-        $dateRaw = Decode-Html ($cells[2].Groups[1].Value -replace '<[^>]+>','').Trim()
-        if ($ename.Length -lt 3 -or $dateRaw -notmatch '\d') { continue }
+    $today_mz = (Get-Date).Date
+    # 見出し + [開催日] ブロックのペアを取得
+    # 構造: <h2/h3/strong>イベント名</h2> ... [ 開催日 ] YYYY年M月D日 [ 会場 ] 会場名 [ WEBサイト ] URL
+    $evBlocks = [regex]::Matches($html, '(?s)(<(?:h[2-4]|strong)[^>]*>([^<]{3,60})</(?:h[2-4]|strong)>)\s*(?:<[^>]*>)*\s*\[\s*開催日\s*\](.*?)(?=<(?:h[2-4]|strong)|\z)', 'IgnoreCase')
+    foreach ($block in $evBlocks) {
+        $ename = Decode-Html $block.Groups[2].Value.Trim()
+        if ($ename -match 'テンプレート|イベント名' -or $ename.Length -lt 3) { continue }
+        $afterText = $block.Groups[3].Value
+        $plain = ($afterText -replace '<[^>]+>',' ' -replace '\s+',' ').Trim()
         $edate = ""
-        if ($dateRaw -match '(\d{4})年(\d{1,2})月(\d{1,2})日') {
-            $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
-        } elseif ($dateRaw -match '(\d{1,2})月(\d{1,2})日') {
-            $yr = (Get-Date).Year
-            $edate = "$yr-$($Matches[1].PadLeft(2,'0'))-$($Matches[2].PadLeft(2,'0'))"
-        }
-        $eurl = ""
-        if ($row.Groups[1].Value -match 'href="(https?://[^"]+)"') { $eurl = $Matches[1] }
-        $epref = Get-PrefectureFromName "$ename $evenue"
-        if (-not $epref) { $epref = Get-Prefecture $evenue }
+        if ($plain -match '(\d{4})年(\d{1,2})月(\d{1,2})日') {
+            $yr=$Matches[1]; $mo=$Matches[2]; $dy=$Matches[3]
+            $edate = "$yr-$($mo.PadLeft(2,'0'))-$($dy.PadLeft(2,'0'))"
+            try { if ([datetime]$edate -lt $today_mz) { continue } } catch { continue }
+        } else { continue }
+        $evenue = ""
+        if ($plain -match '\[\s*会場\s*\]\s*([^\[]{3,60}?)(?=\s*\[|\s*$)') { $evenue = $Matches[1].Trim() }
+        $eurl = "https://motorzone.co.jp/event/eventinfo.html"
+        if ($afterText -match 'href="(https?://[^"]+)"') { $eurl = $Matches[1] }
         $key = "motorzone_$ename"
-        if ($ename -and $edate -and ($key -notin $knownUrls)) {
-            $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=$evenue; url=$(if($eurl){$eurl}else{"https://motorzone.co.jp/event/eventinfo.html"}); source="motorzone" }
+        if ($key -notin $knownUrls) {
+            $epref = Get-PrefectureFromName "$ename $evenue"
+            if (-not $epref) { $epref = Get-Prefecture "$ename $evenue" }
+            $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=$evenue; url=$eurl; source="motorzone" }
             $newUrls += $key
         }
     }
@@ -474,25 +484,38 @@ try {
     $res = Invoke-WebRequest -Uri "https://www.kbinfo.co.jp/tensapo/column/1350164_14101.html" -UseBasicParsing -TimeoutSec 30
     $html = $res.Content
     $before = $discoveredEvents.Count
+    $today_kb = (Get-Date).Date
     $rows = [regex]::Matches($html, '(?s)<tr[^>]*>(.*?)</tr>', 'IgnoreCase')
     foreach ($row in $rows) {
-        $cells = [regex]::Matches($row.Groups[1].Value, '(?s)<td[^>]*>(.*?)</td>', 'IgnoreCase')
-        if ($cells.Count -lt 3) { continue }
-        $ename = Decode-Html ($cells[0].Groups[1].Value -replace '<[^>]+>','').Trim()
-        $evenue = Decode-Html ($cells[1].Groups[1].Value -replace '<[^>]+>','').Trim()
-        $dateRaw = Decode-Html ($cells[2].Groups[1].Value -replace '<[^>]+>','').Trim()
-        if ($ename.Length -lt 3 -or $dateRaw -notmatch '\d') { continue }
+        $rowContent = $row.Groups[1].Value
+        # 展示会名は <th> タグに格納されている
+        $thCells = [regex]::Matches($rowContent, '(?s)<th[^>]*>(.*?)</th>', 'IgnoreCase')
+        $tdCells = [regex]::Matches($rowContent, '(?s)<td[^>]*>(.*?)</td>', 'IgnoreCase')
+        if ($tdCells.Count -lt 2) { continue }
+        $ename = ""
+        if ($thCells.Count -gt 0) {
+            $ename = Decode-Html ($thCells[0].Groups[1].Value -replace '<[^>]+>',' ' -replace '\s+',' ').Trim()
+        }
+        if ($ename.Length -lt 3) { continue }
+        # td[0]=会場・都市, td[1]=日程
+        $evenue = Decode-Html ($tdCells[0].Groups[1].Value -replace '<[^>]+>',' ' -replace '\s+',' ').Trim()
+        $dateRaw = Decode-Html ($tdCells[1].Groups[1].Value -replace '<[^>]+>',' ' -replace '\s+',' ').Trim()
+        if ($dateRaw -notmatch '\d') { continue }
         $edate = ""
         if ($dateRaw -match '(\d{4})年(\d{1,2})月(\d{1,2})日') {
+            $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
+        } elseif ($dateRaw -match '(\d{4})[/.\-](\d{1,2})[/.\-](\d{1,2})') {
             $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
         } elseif ($dateRaw -match '(\d{1,2})月(\d{1,2})日') {
             $yr = (Get-Date).Year
             $edate = "$yr-$($Matches[1].PadLeft(2,'0'))-$($Matches[2].PadLeft(2,'0'))"
         }
+        if (-not $edate) { continue }
+        try { if ([datetime]$edate -lt $today_kb) { continue } } catch { continue }
         $epref = Get-PrefectureFromName "$ename $evenue"
         if (-not $epref) { $epref = Get-Prefecture $evenue }
         $key = "tensapo_$ename"
-        if ($ename -and $edate -and ($key -notin $knownUrls)) {
+        if ($key -notin $knownUrls) {
             $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=$evenue; url="https://www.kbinfo.co.jp/tensapo/column/1350164_14101.html"; source="tensapo" }
             $newUrls += $key
         }
@@ -500,6 +523,49 @@ try {
     Write-Log "kbinfo.co.jp (展サポ): $($discoveredEvents.Count - $before) 件の新規候補"
 } catch {
     Write-Log "kbinfo.co.jp エラー: $_"
+}
+
+# ===== jmty.jp カーイベント =====
+Write-Log "jmty.jp を取得中..."
+try {
+    $searches = @("カーミーティング", "スーパーカー", "車イベント")
+    $jmtyBefore = $discoveredEvents.Count
+    $jmtySeen = @()
+    foreach ($kw in $searches) {
+        $kwenc = [uri]::EscapeUriString($kw)
+        $res = Invoke-WebRequest -Uri "https://jmty.jp/all/eve-kw-$kwenc" -UseBasicParsing -TimeoutSec 30
+        $html = $res.Content
+        # 記事リンク: /all/sale/article-N
+        $links = [regex]::Matches($html, 'href="(/all/[^"]+article-\d+[^"]*)"') |
+                 ForEach-Object { "https://jmty.jp" + $_.Groups[1].Value -replace '\?.*$','' } |
+                 Sort-Object -Unique | Where-Object { $_ -notin $knownUrls -and $_ -notin $jmtySeen }
+        foreach ($link in ($links | Select-Object -First 10)) {
+            $jmtySeen += $link
+            try {
+                $detail = Invoke-WebRequest -Uri $link -UseBasicParsing -TimeoutSec 15
+                $dhtml = $detail.Content
+                $ename = ""
+                if ($dhtml -match '<title>([^|｜<]{4,80})') { $ename = Decode-Html ($Matches[1].Trim() -replace '[|｜].*$','').Trim() }
+                $edate = ""
+                if ($dhtml -match '開催日[^：:]*[：:]\s*(\d{4})年(\d{1,2})月(\d{1,2})日') {
+                    $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
+                } elseif ($dhtml -match '(\d{4})年(\d{1,2})月(\d{1,2})日') {
+                    $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
+                }
+                $epref = Get-PrefectureFromName $ename
+                if (-not $epref) { $epref = Get-Prefecture $dhtml }
+                if ($ename.Length -ge 4 -and $edate) {
+                    $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=""; url=$link; source="jmty" }
+                    $newUrls += $link
+                }
+                Start-Sleep -Milliseconds 300
+            } catch {}
+        }
+        Start-Sleep -Milliseconds 500
+    }
+    Write-Log "jmty.jp: $($discoveredEvents.Count - $jmtyBefore) 件の新規候補"
+} catch {
+    Write-Log "jmty.jp エラー: $_"
 }
 
 # ===== 新規イベントをIDを付けてマージ =====
