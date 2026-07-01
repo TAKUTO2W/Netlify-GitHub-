@@ -166,60 +166,6 @@ try {
     Write-Log "mach5.jp エラー: $_"
 }
 
-# ===== dupcar-event.com =====
-Write-Log "dupcar-event.com を取得中..."
-try {
-    $res2 = Invoke-WebRequest -Uri "https://dupcar-event.com/" -UseBasicParsing -TimeoutSec 30
-    $html2 = $res2.Content
-
-    $eventLinks = [regex]::Matches($html2, 'href="(https://dupcar-event\.com/event/\d+/)"')
-    $uniqueLinks = $eventLinks | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
-
-    foreach ($link in $uniqueLinks) {
-        if ($link -in $knownUrls) { continue }
-        try {
-            $detail = Invoke-WebRequest -Uri $link -UseBasicParsing -TimeoutSec 20
-            $dhtml = $detail.Content
-
-            $ename = ""
-            if ($dhtml -match '<h1[^>]*>\s*([^<]+)\s*</h1>') { $ename = Decode-Html $Matches[1] }
-
-            $edate = ""
-            if ($dhtml -match '(\d{4})年(\d{1,2})月(\d{1,2})日') {
-                $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
-            }
-
-            $evenue = ""
-            if ($dhtml -match '会場[^\n<]{0,20}<[^>]+>\s*([^<]{2,40})') { $evenue = Decode-Html $Matches[1] }
-
-            # 都道府県: イベント名 → 会場テキスト → 住所フィールド → 本文限定スキャン
-            $epref = Get-PrefectureFromName $ename
-            if (-not $epref -and $evenue) { $epref = Get-Prefecture $evenue }
-            if (-not $epref -and $dhtml -match '(?:住所|所在地|開催地)[^<]{0,5}<[^>]+>\s*([^<]{3,60})') {
-                $epref = Get-Prefecture (Decode-Html $Matches[1])
-            }
-            if (-not $epref -and $dhtml -match '<(?:div|p|td)[^>]*(?:address|venue|location)[^>]*>\s*([^<]{3,60})') {
-                $epref = Get-Prefecture (Decode-Html $Matches[1])
-            }
-            if (-not $epref) {
-                # フォールバック: bodyタグ以降の本文のみ（headerより後）
-                $bodyPart = if ($dhtml -match '(?s)<main[^>]*>(.*?)</main>') { $Matches[1] } else { $dhtml }
-                $epref = Get-Prefecture $bodyPart
-            }
-
-            if ($ename -and $edate) {
-                $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=$evenue; url=$link; source="dupcar" }
-                $newUrls += $link
-                Write-Log "  dupcar 新着: $ename ($edate)"
-            }
-            Start-Sleep -Milliseconds 300
-        } catch {
-            Write-Log "  dupcar 詳細取得エラー ($link): $_"
-        }
-    }
-} catch {
-    Write-Log "dupcar-event.com エラー: $_"
-}
 
 # ===== 新規イベントをIDを付けてマージ =====
 $nextId = $NEW_EVENT_START_ID
