@@ -413,6 +413,7 @@ function renderQuickSection() {
     return events.slice(0, 6).map(e => `
       <div class="quick-event-row" onclick="openModal(EVENTS_DATA.find(x=>x.id===${e.id}))">
         <span class="quick-event-date">${formatDate(e.date)}</span>
+        ${e.prefecture ? `<span class="quick-event-pref">${e.prefecture}</span>` : ''}
         <span class="quick-event-name">${e.name}</span>
       </div>`).join('') + (events.length > 6 ? `<div style="color:var(--text-muted);font-size:11px;padding:4px 0">他 ${events.length - 6} 件...</div>` : '');
   };
@@ -537,7 +538,6 @@ function renderUpdateBanner() {
 
 renderStats();
 renderTicker();
-renderUpcomingBanner();
 renderQuickSection();
 renderMain();
 updateFavBadge();

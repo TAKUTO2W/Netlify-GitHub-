@@ -50,6 +50,63 @@ function Get-Prefecture($text) {
     return ""
 }
 
+# イベント名・会場名のキーワードから都道府県を推定
+function Get-PrefectureFromName($name) {
+    $map = [ordered]@{
+        "北海道|ふらの|富良野|EZO|蝦夷|札幌|函館|旭川" = "北海道"
+        "青森|弘前|八戸" = "青森県"
+        "岩手|盛岡" = "岩手県"
+        "宮城|仙台" = "宮城県"
+        "秋田" = "秋田県"
+        "山形|やまがた" = "山形県"
+        "福島" = "福島県"
+        "茨城|水戸|つくば" = "茨城県"
+        "栃木|宇都宮|日光" = "栃木県"
+        "群馬|前橋|高崎|伊勢崎" = "群馬県"
+        "埼玉|さいたま|浦和|大宮" = "埼玉県"
+        "千葉|幕張|柏" = "千葉県"
+        "東京|品川|渋谷|新宿|秋葉原|羽田" = "東京都"
+        "横浜|神奈川|川崎|湘南" = "神奈川県"
+        "新潟|国上|長岡|SORAIRO" = "新潟県"
+        "富山" = "富山県"
+        "金沢|石川|能登|北陸" = "石川県"
+        "福井" = "福井県"
+        "山梨|甲府|富士吉田" = "山梨県"
+        "長野|信州|北信越|松本|諏訪" = "長野県"
+        "岐阜|可児" = "岐阜県"
+        "静岡|浜松|富士" = "静岡県"
+        "名古屋|愛知|豊田|岡崎" = "愛知県"
+        "三重|鈴鹿|伊勢" = "三重県"
+        "滋賀|琵琶湖|大津" = "滋賀県"
+        "京都|きょうと" = "京都府"
+        "OSAKA|大阪|なにわ|難波|梅田" = "大阪府"
+        "神戸|兵庫|姫路|尼崎" = "兵庫県"
+        "奈良" = "奈良県"
+        "和歌山" = "和歌山県"
+        "鳥取" = "鳥取県"
+        "島根|山陰" = "島根県"
+        "岡山" = "岡山県"
+        "広島|HIROSHIMA" = "広島県"
+        "山口" = "山口県"
+        "徳島" = "徳島県"
+        "香川|高松" = "香川県"
+        "愛媛|松山" = "愛媛県"
+        "高知" = "高知県"
+        "福岡|博多|北九州" = "福岡県"
+        "佐賀" = "佐賀県"
+        "長崎" = "長崎県"
+        "熊本|肥後" = "熊本県"
+        "大分" = "大分県"
+        "宮崎" = "宮崎県"
+        "鹿児島|KAGOSHIMA" = "鹿児島県"
+        "沖縄|OKINAWA|那覇" = "沖縄県"
+    }
+    foreach ($pattern in $map.Keys) {
+        if ($name -match $pattern) { return $map[$pattern] }
+    }
+    return ""
+}
+
 Write-Log "=== check-events.ps1 開始 ==="
 
 # 既知URLリストを読み込む
@@ -93,7 +150,8 @@ try {
             if ($row -match '(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})') {
                 $date = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
             }
-            $pref = Get-Prefecture $row
+            $pref = Get-PrefectureFromName $name
+            if (-not $pref) { $pref = Get-Prefecture $row }
             if ($href -notmatch '^https?://') {
                 $href = "https://www.mach5.jp/eventmania/" + $href.TrimStart('/')
             }
@@ -131,10 +189,23 @@ try {
                 $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
             }
 
-            $epref = Get-Prefecture $dhtml
-
             $evenue = ""
             if ($dhtml -match '会場[^\n<]{0,20}<[^>]+>\s*([^<]{2,40})') { $evenue = Decode-Html $Matches[1] }
+
+            # 都道府県: イベント名 → 会場テキスト → 住所フィールド → 本文限定スキャン
+            $epref = Get-PrefectureFromName $ename
+            if (-not $epref -and $evenue) { $epref = Get-Prefecture $evenue }
+            if (-not $epref -and $dhtml -match '(?:住所|所在地|開催地)[^<]{0,5}<[^>]+>\s*([^<]{3,60})') {
+                $epref = Get-Prefecture (Decode-Html $Matches[1])
+            }
+            if (-not $epref -and $dhtml -match '<(?:div|p|td)[^>]*(?:address|venue|location)[^>]*>\s*([^<]{3,60})') {
+                $epref = Get-Prefecture (Decode-Html $Matches[1])
+            }
+            if (-not $epref) {
+                # フォールバック: bodyタグ以降の本文のみ（headerより後）
+                $bodyPart = if ($dhtml -match '(?s)<main[^>]*>(.*?)</main>') { $Matches[1] } else { $dhtml }
+                $epref = Get-Prefecture $bodyPart
+            }
 
             if ($ename -and $edate) {
                 $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=$evenue; url=$link; source="dupcar" }

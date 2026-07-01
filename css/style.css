@@ -943,6 +943,16 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   min-width: 44px;
   flex-shrink: 0;
 }
+.quick-event-pref {
+  font-size: 10px;
+  font-weight: 600;
+  color: #888;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
 .quick-event-name {
   font-size: 12px;
   color: var(--text);

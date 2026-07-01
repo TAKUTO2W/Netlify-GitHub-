@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>お問い合わせ | CARJAM</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .contact-hero {
+      background: linear-gradient(135deg, #080808 0%, #1a1a1a 100%);
+      border-bottom: 2px solid var(--red);
+      padding: 3rem 1.5rem 2.5rem;
+      text-align: center;
+    }
+    .contact-hero h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #fff;
+      margin: 0 0 0.5rem;
+      letter-spacing: 0.05em;
+    }
+    .contact-hero p {
+      color: #888;
+      margin: 0;
+      font-size: 0.9rem;
+    }
+    .contact-body {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem 5rem;
+    }
+    .contact-form {
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 12px;
+      padding: 2rem;
+    }
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    .form-label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #ccc;
+      margin-bottom: 0.5rem;
+    }
+    .form-label .req {
+      color: var(--red);
+      margin-left: 4px;
+    }
+    .form-input, .form-textarea {
+      width: 100%;
+      background: #181818;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.95rem;
+      font-family: inherit;
+      padding: 0.75rem 1rem;
+      box-sizing: border-box;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+    .form-input:focus, .form-textarea:focus {
+      border-color: var(--red);
+    }
+    .form-textarea {
+      resize: vertical;
+      min-height: 160px;
+    }
+    .form-submit {
+      width: 100%;
+      background: var(--red);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      font-family: inherit;
+      padding: 0.9rem;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .form-submit:hover { opacity: 0.85; }
+    .contact-note {
+      color: #666;
+      font-size: 0.82rem;
+      text-align: center;
+      margin-top: 1.5rem;
+      line-height: 1.7;
+    }
+    /* Thank you page shown by Netlify */
+    .thankyou-box {
+      text-align: center;
+      padding: 4rem 1rem;
+    }
+    .thankyou-box h2 {
+      color: #fff;
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .thankyou-box p {
+      color: #888;
+      margin-bottom: 2rem;
+    }
+    .thankyou-box a {
+      color: var(--red);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <a class="nav-logo" href="index.html">
+    <div class="nav-logo-mark">CJ</div>
+    <div>
+      <div class="nav-logo-text">CARJAM</div>
+      <div class="nav-logo-sub">Japan Car Events</div>
+    </div>
+  </a>
+  <div class="nav-links">
+    <a href="index.html" class="nav-link">イベント</a>
+    <a href="blog.html" class="nav-link">ブログ</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="contact-hero">
+  <h1><i class="ti ti-mail" style="margin-right:8px;color:var(--red)"></i>お問い合わせ</h1>
+  <p>イベント情報の掲載依頼・ご質問・ご意見などお気軽にどうぞ</p>
+</div>
+
+<!-- FORM -->
+<div class="contact-body">
+  <div class="contact-form">
+    <form name="contact" method="POST" data-netlify="true" action="/contact-thanks.html">
+      <input type="hidden" name="form-name" value="contact">
+
+      <div class="form-group">
+        <label class="form-label">お名前<span class="req">*</span></label>
+        <input class="form-input" type="text" name="name" placeholder="山田 太郎" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">メールアドレス<span class="req">*</span></label>
+        <input class="form-input" type="email" name="email" placeholder="example@email.com" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">お問い合わせ種別</label>
+        <select class="form-input" name="category">
+          <option value="general">一般的なお問い合わせ</option>
+          <option value="event">イベント情報の掲載依頼</option>
+          <option value="correction">情報の修正・削除依頼</option>
+          <option value="partnership">掲載・広告のご相談</option>
+          <option value="other">その他</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">お問い合わせ内容<span class="req">*</span></label>
+        <textarea class="form-textarea" name="message" placeholder="お問い合わせ内容をご記入ください" required></textarea>
+      </div>
+
+      <button class="form-submit" type="submit">送信する <i class="ti ti-send" style="margin-left:6px"></i></button>
+    </form>
+
+    <p class="contact-note">
+      ご入力いただいた情報はお問い合わせへの対応のみに使用し、<br>
+      第三者への提供は行いません。<a href="privacy.html">プライバシーポリシー</a>
+    </p>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-bottom">
+    <div>© 2026 CARJAM by 株式会社USDM. All Rights Reserved.</div>
+    <div class="footer-bottom-right">
+      <a href="https://usdm.jp/" target="_blank" class="footer-link">株式会社USDM 公式HP</a>
+      <a href="privacy.html" class="footer-link">プライバシーポリシー</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
