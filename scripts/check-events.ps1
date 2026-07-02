@@ -460,24 +460,28 @@ try {
     $html = $res.Content
     $before = $discoveredEvents.Count
     $today_mz = (Get-Date).Date
-    # 見出し + [開催日] ブロックのペアを取得
-    # 構造: <h2/h3/strong>イベント名</h2> ... [ 開催日 ] YYYY年M月D日 [ 会場 ] 会場名 [ WEBサイト ] URL
-    $evBlocks = [regex]::Matches($html, '(?s)(<(?:h[2-4]|strong)[^>]*>([^<]{3,60})</(?:h[2-4]|strong)>)\s*(?:<[^>]*>)*\s*\[\s*開催日\s*\](.*?)(?=<(?:h[2-4]|strong)|\z)', 'IgnoreCase')
+    # 構造: <h4>イベント名</h4><p class="c-body">[ 開催日 ] YYYY年M月D日...</p>
+    $evBlocks = [regex]::Matches($html, '(?s)<h4[^>]*>(.*?)</h4>\s*<p[^>]*class="[^"]*c-body[^"]*"[^>]*>(.*?)</p>', 'IgnoreCase')
     foreach ($block in $evBlocks) {
-        $ename = Decode-Html $block.Groups[2].Value.Trim()
+        $ename = Decode-Html ($block.Groups[1].Value -replace '<[^>]+>','').Trim()
         if ($ename -match 'テンプレート|イベント名' -or $ename.Length -lt 3) { continue }
-        $afterText = $block.Groups[3].Value
-        $plain = ($afterText -replace '<[^>]+>',' ' -replace '\s+',' ').Trim()
+        $body = $block.Groups[2].Value -replace '<br\s*/?>', "`n"
+        $plain = ($body -replace '<[^>]+>',' ' -replace '\s+',' ').Trim()
         $edate = ""
         if ($plain -match '(\d{4})年(\d{1,2})月(\d{1,2})日') {
             $yr=$Matches[1]; $mo=$Matches[2]; $dy=$Matches[3]
             $edate = "$yr-$($mo.PadLeft(2,'0'))-$($dy.PadLeft(2,'0'))"
             try { if ([datetime]$edate -lt $today_mz) { continue } } catch { continue }
         } else { continue }
+        # 会場: [ 会場 ] venue または日付の次の行
         $evenue = ""
-        if ($plain -match '\[\s*会場\s*\]\s*([^\[]{3,60}?)(?=\s*\[|\s*$)') { $evenue = $Matches[1].Trim() }
+        if ($plain -match '\[\s*会場\s*\]\s*([^\[]{3,60}?)(?=\s*\[|\s*$)') {
+            $evenue = $Matches[1].Trim()
+        } elseif ($plain -match '\d{4}年[^\n]+\n([^\n]{3,50})') {
+            $evenue = $Matches[1].Trim()
+        }
         $eurl = "https://motorzone.co.jp/event/eventinfo.html"
-        if ($afterText -match 'href="(https?://[^"]+)"') { $eurl = $Matches[1] }
+        if ($body -match 'href="(https?://[^"]+)"') { $eurl = $Matches[1] }
         $key = "motorzone_$ename"
         if ($key -notin $knownUrls) {
             $epref = Get-PrefectureFromName "$ename $evenue"
@@ -489,6 +493,52 @@ try {
     Write-Log "motorzone.co.jp: $($discoveredEvents.Count - $before) 件の新規候補"
 } catch {
     Write-Log "motorzone.co.jp エラー: $_"
+}
+
+# ===== careventnavi.jp =====
+Write-Log "careventnavi.jp を取得中..."
+try {
+    $res = Invoke-WebRequest -Uri "https://careventnavi.jp/event-list/" -UseBasicParsing -TimeoutSec 30
+    $html = $res.Content
+    $before = $discoveredEvents.Count
+    # 記事リンクを収集
+    $links = [regex]::Matches($html, 'href="(https://careventnavi\.jp/[a-z0-9][a-z0-9\-]{4,80}/)"') |
+             ForEach-Object { $_.Groups[1].Value } |
+             Where-Object { $_ -notmatch 'category|author|page|tag|feed|about|contact|calendar|privacy|event-submission|event-support|event-list|%e3' } |
+             Sort-Object -Unique
+    foreach ($link in $links) {
+        if ($link -in $knownUrls) { continue }
+        try {
+            $detail = Invoke-WebRequest -Uri $link -UseBasicParsing -TimeoutSec 15
+            $dhtml = $detail.Content
+            # タイトル: <title>イベント名｜... | Car Event NAVI</title>
+            $ename = ""
+            if ($dhtml -match '<title>([^|｜<]+)') {
+                $ename = Decode-Html ($Matches[1].Trim() -replace '[|｜].*$','').Trim()
+            }
+            $dplain = ($dhtml -replace '<[^>]+>',' ' -replace '\s+',' ')
+            # 日付: 最初の YYYY年M月D日 (公開日を除く2件目を優先)
+            $dateMatches = [regex]::Matches($dplain, '(\d{4})年(\d{1,2})月(\d{1,2})日')
+            $edate = ""
+            foreach ($dm in ($dateMatches | Select-Object -Skip 0)) {
+                $dobj = "$($dm.Groups[1].Value)-$($dm.Groups[2].Value.PadLeft(2,'0'))-$($dm.Groups[3].Value.PadLeft(2,'0'))"
+                try {
+                    if ([datetime]$dobj -ge $today_mz) { $edate = $dobj; break }
+                } catch {}
+            }
+            if (-not $edate) { continue }
+            $epref = Get-PrefectureFromName "$ename $dplain"
+            if (-not $epref) { $epref = Get-Prefecture $dplain }
+            if ($ename.Length -ge 4) {
+                $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=""; url=$link; source="careventnavi" }
+                $newUrls += $link
+            }
+            Start-Sleep -Milliseconds 400
+        } catch {}
+    }
+    Write-Log "careventnavi.jp: $($discoveredEvents.Count - $before) 件の新規候補"
+} catch {
+    Write-Log "careventnavi.jp エラー: $_"
 }
 
 # ===== 展サポ 自動車展示会 (kbinfo.co.jp) =====
