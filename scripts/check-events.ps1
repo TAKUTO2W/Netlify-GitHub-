@@ -596,11 +596,11 @@ try {
     $jmtySeen = @()
     foreach ($kw in $searches) {
         $kwenc = [uri]::EscapeUriString($kw)
-        $res = Invoke-WebRequest -Uri "https://jmty.jp/all/eve-kw-$kwenc" -UseBasicParsing -TimeoutSec 30
+        $res = Invoke-WebRequest -Uri "https://jmty.jp/all/eve?keyword=$kwenc" -UseBasicParsing -TimeoutSec 30
         $html = $res.Content
-        # 記事リンク: /all/sale/article-N
-        $links = [regex]::Matches($html, 'href="(/all/[^"]+article-\d+[^"]*)"') |
-                 ForEach-Object { "https://jmty.jp" + $_.Groups[1].Value -replace '\?.*$','' } |
+        # 記事リンク（絶対URL・都道府県別パス・英数字ID）: https://jmty.jp/{pref}/eve-xxx/article-XXXX
+        $links = [regex]::Matches($html, 'href="(https://jmty\.jp/[a-z0-9]+/eve[^"/]*/article-[0-9a-z]+)"') |
+                 ForEach-Object { $_.Groups[1].Value -replace '\?.*$','' } |
                  Sort-Object -Unique | Where-Object { $_ -notin $knownUrls -and $_ -notin $jmtySeen }
         foreach ($link in ($links | Select-Object -First 10)) {
             $jmtySeen += $link
