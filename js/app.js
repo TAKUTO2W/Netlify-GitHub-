@@ -129,7 +129,13 @@ function openModal(event) {
   document.getElementById('modal-venue').textContent = event.venue;
   document.getElementById('modal-cat').textContent = event.category;
   document.getElementById('modal-region').textContent = event.region;
-  document.getElementById('modal-desc').textContent = event.description;
+  // ③ テンプレ説明文は非表示
+  const descEl = document.getElementById('modal-desc');
+  const isTemplate = !event.description || event.description.endsWith('の開催情報です。');
+  if (descEl) {
+    descEl.style.display = isTemplate ? 'none' : 'block';
+    if (!isTemplate) descEl.textContent = event.description;
+  }
 
   const linkEl = document.getElementById('modal-link');
   if (event.url) { linkEl.href = event.url; linkEl.style.display = 'flex'; }
@@ -408,14 +414,21 @@ function renderQuickSection() {
   const monthCount = document.getElementById('month-count');
   if (monthCount) monthCount.textContent = `${monthEvents.length}件`;
 
+  // ⑧ 横スクロールカードUI
   const renderQuickItems = (events) => {
-    if (!events.length) return '<div style="color:var(--text-muted);font-size:12px;padding:8px 0">今月のイベントはありません</div>';
-    return events.slice(0, 6).map(e => `
-      <div class="quick-event-row" onclick="openModal(EVENTS_DATA.find(x=>x.id===${e.id}))">
-        <span class="quick-event-date">${formatDate(e.date)}</span>
-        ${e.prefecture ? `<span class="quick-event-pref">${e.prefecture}</span>` : ''}
-        <span class="quick-event-name">${e.name}</span>
-      </div>`).join('') + (events.length > 6 ? `<div style="color:var(--text-muted);font-size:11px;padding:4px 0">他 ${events.length - 6} 件...</div>` : '');
+    if (!events.length) return '<div class="quick-empty">今月のイベントはありません</div>';
+    const cards = events.slice(0, 10).map(e => `
+      <div class="quick-card" onclick="openModal(EVENTS_DATA.find(x=>x.id===${e.id}))">
+        <div class="quick-card-date">${formatDate(e.date)}</div>
+        ${e.prefecture && e.prefecture !== '未定' ? `<span class="quick-card-pref">${e.prefecture}</span>` : ''}
+        <div class="quick-card-name">${e.name}</div>
+      </div>`).join('');
+    const moreBtn = events.length > 10
+      ? `<div class="quick-more-btn" onclick="document.getElementById('filter-bar').scrollIntoView({behavior:'smooth'})">
+           <i class="ti ti-dots" style="font-size:18px"></i>
+           <span>他 ${events.length - 10} 件</span>
+         </div>` : '';
+    return `<div class="quick-cards-scroll">${cards}${moreBtn}</div>`;
   };
 
   if (monthEl) monthEl.innerHTML = renderQuickItems(monthEvents);
@@ -542,3 +555,23 @@ renderQuickSection();
 renderMain();
 updateFavBadge();
 renderUpdateBanner();
+
+// ⑨ 最終更新タイムスタンプ表示
+(function () {
+  if (!window.SITE_UPDATES || !SITE_UPDATES.lastChecked) return;
+  const el = document.getElementById('hero-lastupdate');
+  const textEl = document.getElementById('hero-lastupdate-text');
+  if (!el || !textEl) return;
+  const d = new Date(SITE_UPDATES.lastChecked);
+  const now = new Date();
+  const diffH = Math.round((now - d) / 3600000);
+  let label;
+  if (diffH < 1) label = 'たった今';
+  else if (diffH < 24) label = `${diffH}時間前`;
+  else {
+    const diffD = Math.floor(diffH / 24);
+    label = diffD === 0 ? '今日' : `${diffD}日前`;
+  }
+  textEl.textContent = `最終更新: ${label}`;
+  el.style.display = 'inline-flex';
+})();

@@ -51,22 +51,35 @@ function Get-Prefecture($text) {
 }
 
 # イベント名・会場名のキーワードから都道府県を推定
+# ② イベント名・ソースからカテゴリを自動判定
+function Get-CategoryFromName($name, $source) {
+    if ($name -match 'サーキット|ジムカーナ|タイムアタック|レース|RACE|耐久|Rally|ラリー|GP|Formula|フォーミュラ|Sprint|SuperGT|SUPER GT|GTi') { return 'レース' }
+    if ($name -match 'ショー|SHOW|モーターショー|オートモーティブ|カーショー|CarShow|展示会|Car Show|AutoShow') { return 'モーターショー' }
+    if ($name -match 'クラシック|旧車|ヴィンテージ|CLASSIC|VINTAGE|昭和|旧車會|バイク|族車') { return 'クラシックカー' }
+    if ($name -match 'カスタム|チューニング|Custom|Tuning|痛車|コスプレ|ITASHA|ドレスアップ|Dress') { return 'カスタム・チューニング' }
+    if ($name -match 'オフロード|SUV|4WD|四駆|ジムニー|ランクル|ランドクルーザー|ジープ|オフ会') { return 'オフロード・SUV' }
+    if ($source -eq 'tensapo') { return 'モーターショー' }
+    if ($source -eq 'coscam' -or $source -eq 'itasha') { return 'カスタム・チューニング' }
+    if ($source -eq 'racry') { return 'カスタム・チューニング' }
+    return 'カーミーティング'
+}
+
 function Get-PrefectureFromName($name) {
     $map = [ordered]@{
         "北海道|ふらの|富良野|EZO|蝦夷|札幌|函館|旭川" = "北海道"
         "青森|弘前|八戸" = "青森県"
         "岩手|盛岡" = "岩手県"
-        "宮城|仙台" = "宮城県"
+        "宮城|仙台|SUGO|スポーツランドSUGO|スポーツランド菅生" = "宮城県"
         "秋田" = "秋田県"
         "山形|やまがた" = "山形県"
         "福島" = "福島県"
-        "茨城|水戸|つくば" = "茨城県"
-        "栃木|宇都宮|日光" = "栃木県"
+        "茨城|水戸|つくば|筑波サーキット|筑波" = "茨城県"
+        "栃木|宇都宮|日光|もてぎ|ツインリンク|Twin Ring|ツインリンクもてぎ" = "栃木県"
         "群馬|前橋|高崎|伊勢崎" = "群馬県"
         "埼玉|さいたま|浦和|大宮" = "埼玉県"
-        "千葉|幕張|柏" = "千葉県"
-        "東京|品川|渋谷|新宿|秋葉原|羽田" = "東京都"
-        "横浜|神奈川|川崎|湘南|箱根|大観山|厚木|相模" = "神奈川県"
+        "千葉|幕張|柏|袖ヶ浦|茂原|袖ケ浦|SODEGAURA|幕張メッセ" = "千葉県"
+        "東京|品川|渋谷|新宿|秋葉原|羽田|お台場|豊洲|有明|青海|東京ビッグサイト|東京国際展示場" = "東京都"
+        "横浜|神奈川|川崎|湘南|箱根|大観山|厚木|相模|大黒PA|大黒ふ頭|みなとみらい|海老名" = "神奈川県"
         "新潟|国上|長岡|SORAIRO" = "新潟県"
         "富山" = "富山県"
         "金沢|石川|能登|北陸" = "石川県"
@@ -74,9 +87,9 @@ function Get-PrefectureFromName($name) {
         "山梨|甲府|富士吉田" = "山梨県"
         "長野|信州|北信越|松本|諏訪" = "長野県"
         "岐阜|可児" = "岐阜県"
-        "静岡|浜松|富士" = "静岡県"
+        "静岡|浜松|富士|富士スピードウェイ|FISCO|富士スピ|FSW" = "静岡県"
         "名古屋|愛知|豊田|岡崎" = "愛知県"
-        "三重|鈴鹿|伊勢" = "三重県"
+        "三重|鈴鹿|伊勢|鈴鹿サーキット" = "三重県"
         "滋賀|琵琶湖|大津" = "滋賀県"
         "京都|きょうと" = "京都府"
         "OSAKA|大阪|なにわ|難波|梅田" = "大阪府"
@@ -96,7 +109,7 @@ function Get-PrefectureFromName($name) {
         "佐賀" = "佐賀県"
         "長崎" = "長崎県"
         "熊本|肥後" = "熊本県"
-        "大分" = "大分県"
+        "大分|オートポリス" = "大分県"
         "宮崎" = "宮崎県"
         "鹿児島|KAGOSHIMA" = "鹿児島県"
         "沖縄|OKINAWA|那覇" = "沖縄県"
@@ -575,9 +588,14 @@ if ($existingNewEvents.Count -gt 0) {
     if ($maxId -ge $nextId) { $nextId = $maxId + 1 }
 }
 
+$today = (Get-Date).Date
 $newEventObjects = @()
 foreach ($ev in $discoveredEvents) {
+    # ④ 過去イベントを除外（今日より前の日付はスキップ）
+    try { if ([datetime]$ev.date -lt $today) { continue } } catch {}
     $region = if ($REGION_MAP.ContainsKey($ev.prefecture)) { $REGION_MAP[$ev.prefecture] } else { "その他" }
+    # ② カテゴリを自動分類
+    $cat = Get-CategoryFromName $ev.name $ev.source
     $newEventObjects += [PSCustomObject]@{
         id          = $nextId
         name        = $ev.name
@@ -586,8 +604,8 @@ foreach ($ev in $discoveredEvents) {
         prefecture  = if ($ev.prefecture) { $ev.prefecture } else { "未定" }
         region      = $region
         venue       = if ($ev.venue) { $ev.venue } else { "未定" }
-        category    = "カーミーティング"
-        description = "$($ev.name) の開催情報です。"
+        category    = $cat
+        description = ""
         url         = $ev.url
         featured    = $false
         source      = $ev.source
@@ -595,7 +613,20 @@ foreach ($ev in $discoveredEvents) {
     $nextId++
 }
 
-$mergedEvents = @($existingNewEvents) + @($newEventObjects)
+# 既存イベントのカテゴリ・説明文も再分類
+$updatedExisting = @()
+foreach ($ev in $existingNewEvents) {
+    $src = if ($ev.PSObject.Properties['source']) { $ev.source } else { "" }
+    $ev.category = Get-CategoryFromName $ev.name $src
+    $ev.description = ""
+    # 都道府県が "未定" の場合、名前から再推定
+    if ($ev.prefecture -eq "未定" -or -not $ev.prefecture) {
+        $guess = Get-PrefectureFromName "$($ev.name) $($ev.venue)"
+        if ($guess) { $ev.prefecture = $guess }
+    }
+    $updatedExisting += $ev
+}
+$mergedEvents = @($updatedExisting) + @($newEventObjects)
 
 # new-events.js を書き出す（空配列を確実に [] にする）
 if ($mergedEvents.Count -eq 0) {
