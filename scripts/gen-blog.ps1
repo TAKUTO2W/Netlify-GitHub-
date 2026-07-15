@@ -733,8 +733,9 @@ $newPosts = @()
 
 # 既に今日の記事が生成済みかチェック
 $todayPosts = @($existingPosts | Where-Object { $_.date -eq $today })
-$hasCustom  = ($todayPosts | Where-Object { $_.category -eq "カスタム情報" }).Count -gt 0
-$hasTrouble = ($todayPosts | Where-Object { $_.category -eq "車のトラブル解消" }).Count -gt 0
+# PS5.1では結果1件のとき .Count が $null になるため @() で配列化する
+$hasCustom  = @($todayPosts | Where-Object { $_.category -eq "カスタム情報" }).Count -gt 0
+$hasTrouble = @($todayPosts | Where-Object { $_.category -eq "車のトラブル解消" }).Count -gt 0
 
 # トピック選択（日付をシードにしてローテーション）
 $dayOfYear    = (Get-Date).DayOfYear
