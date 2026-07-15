@@ -18,12 +18,15 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 # ブログ自動生成 + はてなブログ投稿
 & "$scriptDir\gen-blog.ps1"
 
+# イベント・記事の個別ページと sitemap.xml を生成（SEO用）
+& "$scriptDir\gen-pages.ps1"
+
 # GitHub に push して Netlify を自動更新
 Write-Log "GitHub へ push 中..."
 try {
     Set-Location $PROJECT_ROOT
     $git = "C:\Program Files\Git\cmd\git.exe"
-    & $git add data/new-events.js data/new-blog-posts.js data/updates.js data/known-event-urls.json
+    & $git add -A data/new-events.js data/new-blog-posts.js data/updates.js data/known-event-urls.json events articles sitemap.xml
     $today = Get-Date -Format "yyyy-MM-dd"
     & $git commit -m "auto update: $today"
     & $git push

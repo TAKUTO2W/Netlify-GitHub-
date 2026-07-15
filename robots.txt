@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://carjam-usdm.netlify.app/sitemap.xml
