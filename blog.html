@@ -202,7 +202,9 @@ if (window.NEW_BLOG_POSTS && NEW_BLOG_POSTS.length > 0) {
 let currentCat = 'すべて';
 
 function renderBlog() {
-  const posts = currentCat === 'すべて' ? BLOG_POSTS : BLOG_POSTS.filter(p => p.category === currentCat);
+  const source = currentCat === 'すべて' ? BLOG_POSTS : BLOG_POSTS.filter(p => p.category === currentCat);
+  // 新しい記事を先頭に（日付降順、同日ならID降順）
+  const posts = source.slice().sort((a, b) => new Date(b.date) - new Date(a.date) || b.id - a.id);
   document.getElementById('blog-count').textContent = posts.length + '件';
   document.getElementById('blog-section-title').textContent = currentCat === 'すべて' ? 'すべての記事' : currentCat;
 
