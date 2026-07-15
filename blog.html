@@ -48,6 +48,12 @@
     .article-title { font-size: 22px; font-weight: 800; color: #fff; line-height: 1.4; margin-bottom: 12px; }
     .article-content { font-size: 14px; color: var(--text-muted); line-height: 1.85; white-space: pre-wrap; }
     .article-content strong { color: var(--text); }
+    /* HTML形式の生成記事用 */
+    .article-content.html-mode { white-space: normal; }
+    .article-content.html-mode h2 { font-size: 16px; color: var(--text); margin: 1.6em 0 0.6em; padding-left: 10px; border-left: 3px solid var(--red); }
+    .article-content.html-mode p { margin: 0 0 1em; }
+    .article-content.html-mode ul, .article-content.html-mode ol { margin: 0 0 1em; padding-left: 1.4em; }
+    .article-content.html-mode li { margin-bottom: 0.4em; }
     .article-close { float: right; width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 16px; cursor: pointer; transition: all .2s; }
     .article-close:hover { border-color: var(--red); color: var(--red); }
     .article-share { display: flex; gap: 8px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
@@ -247,7 +253,11 @@ function openArticle(id) {
   const catTag = document.getElementById('article-cat-tag');
   catTag.textContent = p.category;
   catTag.className = 'blog-cat-tag ' + (isCustom ? 'tag-custom' : 'tag-trouble');
-  document.getElementById('article-content').textContent = p.content;
+  // 生成記事はHTML形式、ベース記事はプレーンテキスト形式の両対応
+  const contentEl = document.getElementById('article-content');
+  const isHtml = /<(h2|p|ul|ol|li|strong|br)[\s>]/i.test(p.content);
+  contentEl.classList.toggle('html-mode', isHtml);
+  if (isHtml) { contentEl.innerHTML = p.content; } else { contentEl.textContent = p.content; }
   document.getElementById('article-tags').innerHTML = p.tags.map(t => `<span class="blog-tag">#${t}</span>`).join('');
   const url = encodeURIComponent(location.href);
   const text = encodeURIComponent(p.title + ' | CARJAM');
