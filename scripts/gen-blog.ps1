@@ -639,6 +639,76 @@ function Build-ArticleHtml($article, $category) {
 }
 
 # ===================================================
+# Claude APIで新規記事を生成（テンプレート枯渇後の恒久生成手段）
+# 戻り値はテンプレートと同形式: @{title; excerpt; content(HTML); tags}
+# ===================================================
+function Invoke-ClaudeArticle($category, $existingTitles) {
+    if (-not $CLAUDE_API_KEY -or $CLAUDE_API_KEY -match "ここに") {
+        Write-Log "Claude記事生成スキップ: config.ps1 の CLAUDE_API_KEY が未設定"
+        return $null
+    }
+
+    $titleList = ($existingTitles | ForEach-Object { "- $_" }) -join "`n"
+    $prompt = @"
+あなたは日本のカーイベント情報サイト「CARJAM」のブログライターです。カテゴリ「$category」の記事を1本書いてください。
+
+条件:
+- 読者は日本の車好き（初心者〜中級者）
+- 文体は「です・ます」調で、親しみやすく実用的に
+- content はHTML形式の本文。<h2>見出しを3〜5個使い、<p>段落、必要に応じて<ul><li>や<strong>を使う。800〜1200文字程度
+- excerpt は記事カード用の紹介文（40〜60文字。「〜しよう」等の軽い呼びかけ可）
+- title は30文字前後
+- tags は日本語キーワードを4〜5個
+- 以下の既存記事とテーマが重複しない、新しいテーマを選ぶこと:
+$titleList
+"@
+
+    $schema = @{
+        type = "object"
+        properties = @{
+            title   = @{ type = "string" }
+            excerpt = @{ type = "string" }
+            content = @{ type = "string" }
+            tags    = @{ type = "array"; items = @{ type = "string" } }
+        }
+        required = @("title", "excerpt", "content", "tags")
+        additionalProperties = $false
+    }
+
+    $body = @{
+        model      = "claude-opus-4-8"
+        max_tokens = 8000
+        messages   = @(@{ role = "user"; content = $prompt })
+        output_config = @{ format = @{ type = "json_schema"; schema = $schema } }
+    } | ConvertTo-Json -Depth 10
+
+    $headers = @{
+        "x-api-key"         = $CLAUDE_API_KEY
+        "anthropic-version" = "2023-06-01"
+        "content-type"      = "application/json"
+    }
+
+    $res = Invoke-WebRequest -Uri "https://api.anthropic.com/v1/messages" -Method POST -Headers $headers `
+        -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -TimeoutSec 300 -UseBasicParsing
+    $json = [System.Text.Encoding]::UTF8.GetString($res.RawContentStream.ToArray()) | ConvertFrom-Json
+
+    if ($json.stop_reason -ne "end_turn") {
+        Write-Log "Claude記事生成中断: stop_reason=$($json.stop_reason)（$category）"
+        return $null
+    }
+    $textBlock = $json.content | Where-Object { $_.type -eq "text" } | Select-Object -First 1
+    $article = $textBlock.text | ConvertFrom-Json
+
+    Write-Log "Claude記事生成OK（$category）: $($article.title) [tokens in=$($json.usage.input_tokens) out=$($json.usage.output_tokens)]"
+    return @{
+        title   = $article.title
+        excerpt = $article.excerpt
+        content = $article.content
+        tags    = @($article.tags)
+    }
+}
+
+# ===================================================
 # X(Twitter) OAuth 1.0a 投稿
 # ===================================================
 function Post-ToX($title, $hatenaUrl) {
@@ -737,15 +807,21 @@ $todayPosts = @($existingPosts | Where-Object { $_.date -eq $today })
 $hasCustom  = @($todayPosts | Where-Object { $_.category -eq "カスタム情報" }).Count -gt 0
 $hasTrouble = @($todayPosts | Where-Object { $_.category -eq "車のトラブル解消" }).Count -gt 0
 
-# トピック選択（日付をシードにしてローテーション）
-$dayOfYear    = (Get-Date).DayOfYear
-$customIdx    = $dayOfYear % $customArticles.Count
-$troubleIdx   = $dayOfYear % $troubleArticles.Count
-$customArt    = $customArticles[$customIdx]
-$troubleArt   = $troubleArticles[$troubleIdx]
+# 記事はClaude APIで新規生成する（テンプレート30本は全て掲載済みのため）
+# 既存タイトル一覧を渡してテーマの重複を防ぐ
+$existingTitles = @($existingPosts | ForEach-Object { $_.title })
+$customArt  = $null
+$troubleArt = $null
+if (-not $hasCustom) {
+    try { $customArt = Invoke-ClaudeArticle "カスタム情報" $existingTitles } catch { Write-Log "Claude記事生成エラー（カスタム情報）: $_" }
+    if ($customArt) { $existingTitles += $customArt.title }
+}
+if (-not $hasTrouble) {
+    try { $troubleArt = Invoke-ClaudeArticle "車のトラブル解消" $existingTitles } catch { Write-Log "Claude記事生成エラー（車のトラブル解消）: $_" }
+}
 
 # カスタム情報 記事を生成
-if (-not $hasCustom) {
+if (-not $hasCustom -and $customArt) {
     Write-Log "カスタム情報 記事生成中: $($customArt.title)"
     try {
         $html = Build-ArticleHtml $customArt "カスタム情報"
@@ -783,11 +859,11 @@ if (-not $hasCustom) {
         Write-Log "カスタム情報 生成エラー: $_"
     }
 } else {
-    Write-Log "カスタム情報 は今日生成済みのためスキップ"
+    if ($hasCustom) { Write-Log "カスタム情報 は今日生成済みのためスキップ" } else { Write-Log "カスタム情報 は記事生成できなかったためスキップ" }
 }
 
 # 車のトラブル解消 記事を生成
-if (-not $hasTrouble) {
+if (-not $hasTrouble -and $troubleArt) {
     Write-Log "車のトラブル解消 記事生成中: $($troubleArt.title)"
     try {
         $html = Build-ArticleHtml $troubleArt "車のトラブル解消"
@@ -825,7 +901,7 @@ if (-not $hasTrouble) {
         Write-Log "車のトラブル解消 生成エラー: $_"
     }
 } else {
-    Write-Log "車のトラブル解消 は今日生成済みのためスキップ"
+    if ($hasTrouble) { Write-Log "車のトラブル解消 は今日生成済みのためスキップ" } else { Write-Log "車のトラブル解消 は記事生成できなかったためスキップ" }
 }
 
 # new-blog-posts.js に追記
