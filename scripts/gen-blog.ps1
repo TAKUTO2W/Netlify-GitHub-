@@ -688,24 +688,37 @@ $titleList
         "content-type"      = "application/json"
     }
 
-    $res = Invoke-WebRequest -Uri "https://api.anthropic.com/v1/messages" -Method POST -Headers $headers `
-        -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -TimeoutSec 300 -UseBasicParsing
-    $json = [System.Text.Encoding]::UTF8.GetString($res.RawContentStream.ToArray()) | ConvertFrom-Json
+    # 最大2回試行（不正な生成＝placeholder事故等は品質チェックではじいて再試行）
+    for ($attempt = 1; $attempt -le 2; $attempt++) {
+        $res = Invoke-WebRequest -Uri "https://api.anthropic.com/v1/messages" -Method POST -Headers $headers `
+            -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -TimeoutSec 300 -UseBasicParsing
+        $json = [System.Text.Encoding]::UTF8.GetString($res.RawContentStream.ToArray()) | ConvertFrom-Json
 
-    if ($json.stop_reason -ne "end_turn") {
-        Write-Log "Claude記事生成中断: stop_reason=$($json.stop_reason)（$category）"
-        return $null
-    }
-    $textBlock = $json.content | Where-Object { $_.type -eq "text" } | Select-Object -First 1
-    $article = $textBlock.text | ConvertFrom-Json
+        if ($json.stop_reason -ne "end_turn") {
+            Write-Log "Claude記事生成中断: stop_reason=$($json.stop_reason)（$category・試行$attempt）"
+            continue
+        }
+        $textBlock = $json.content | Where-Object { $_.type -eq "text" } | Select-Object -First 1
+        $article = $textBlock.text | ConvertFrom-Json
 
-    Write-Log "Claude記事生成OK（$category）: $($article.title) [tokens in=$($json.usage.input_tokens) out=$($json.usage.output_tokens)]"
-    return @{
-        title   = $article.title
-        excerpt = $article.excerpt
-        content = $article.content
-        tags    = @($article.tags)
+        # 品質チェック: タイトル・本文が実体を持つHTML記事であること
+        $badTitle   = (-not $article.title) -or ($article.title.Length -lt 8) -or ($article.title -match 'placeholder|プレースホルダ')
+        $badContent = (-not $article.content) -or ($article.content.Length -lt 300) -or ($article.content -notmatch '<h2')
+        if ($badTitle -or $badContent) {
+            Write-Log "Claude記事生成の品質チェックNG（$category・試行$attempt）: title='$($article.title)' contentLen=$(if ($article.content) { $article.content.Length } else { 0 })"
+            continue
+        }
+
+        Write-Log "Claude記事生成OK（$category）: $($article.title) [tokens in=$($json.usage.input_tokens) out=$($json.usage.output_tokens)]"
+        return @{
+            title   = $article.title
+            excerpt = $article.excerpt
+            content = $article.content
+            tags    = @($article.tags)
+        }
     }
+    Write-Log "Claude記事生成失敗（$category）: 2回とも品質チェックを通過せず、本日はスキップ"
+    return $null
 }
 
 # ===================================================
