@@ -21,6 +21,9 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 # イベント・記事の個別ページと sitemap.xml を生成（SEO用）
 & "$scriptDir\gen-pages.ps1"
 
+# Xにイベント告知を投稿（2日に1回・偶数日のみ）
+& "$scriptDir\gen-x-events.ps1"
+
 # GitHub に push して Netlify を自動更新
 Write-Log "GitHub へ push 中..."
 try {

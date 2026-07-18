@@ -725,6 +725,12 @@ $titleList
 # X(Twitter) OAuth 1.0a 投稿
 # ===================================================
 function Post-ToX($title, $hatenaUrl) {
+    # ブログ告知のX投稿は既定で無効（イベント告知のみ運用・コスト抑制）
+    # 有効化する場合は config.ps1 に $X_POST_BLOG = $true を追加
+    if ($X_POST_BLOG -ne $true) {
+        Write-Log "X投稿スキップ: ブログ告知は無効化中（イベント告知のみ運用）"
+        return
+    }
     # キー未設定チェック
     if ($X_API_KEY -like "ここに*" -or $X_API_KEY -eq "") {
         Write-Log "X投稿スキップ: config.ps1 の X_API_KEY が未設定"
