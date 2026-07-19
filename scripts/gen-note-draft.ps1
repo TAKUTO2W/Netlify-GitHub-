@@ -53,6 +53,9 @@ if ($selected.Count -eq 0) {
 # ---- 下書き組み立て ----
 $sb = New-Object System.Text.StringBuilder
 $titleRange = "{0}/{1}〜{2}/{3}" -f $today.Month, $today.Day, $until.Month, $until.Day
+[void]$sb.AppendLine("■アイキャッチ画像（noteの「画像をアップロード」でこれを選ぶ）")
+[void]$sb.AppendLine("$PROJECT_ROOT\images\note-eyecatch.jpg")
+[void]$sb.AppendLine("")
 [void]$sb.AppendLine("■タイトル案（1行目をコピー）")
 [void]$sb.AppendLine("【$titleRange】今週末〜来週の全国カーイベントまとめ")
 [void]$sb.AppendLine("")
