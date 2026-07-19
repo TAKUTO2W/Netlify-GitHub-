@@ -24,6 +24,9 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 # Xにイベント告知を投稿（2日に1回・偶数日のみ）
 & "$scriptDir\gen-x-events.ps1"
 
+# note用の週末イベントまとめ下書きを生成（毎週金曜のみ・投稿は手動コピペ）
+& "$scriptDir\gen-note-draft.ps1"
+
 # GitHub に push して Netlify を自動更新
 Write-Log "GitHub へ push 中..."
 try {
