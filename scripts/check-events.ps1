@@ -368,8 +368,12 @@ try {
             if ($plain_before -match '(\d{1,2})\s*/\s*(\d{1,2})\s*日') { $dy = $Matches[2] }
             elseif ($plain_before -match '(\d{1,2})\s*/\s*(\d{1,2})') { $dy = $Matches[2] }
             $edate = "$yr-$($mo.PadLeft(2,'0'))-$($dy.PadLeft(2,'0'))"
-            $epref = Get-PrefectureFromName $ename
-            if (-not $epref) { $epref = Get-Prefecture $plain_before }
+            # このカレンダーは「日付 / 曜日 / 都道府県 / イベント名」の順に並んでいるので、
+            # リンクの直前に出てくる県が正しい。
+            # ブロック全体を Get-Prefecture に渡すと、その月の別イベントの県を拾ってしまう
+            # （2026-07-20 に17件中10件が誤っていた原因）。
+            $epref = Get-PrefectureNearest $plain_before $PREFS 300
+            if (-not $epref) { $epref = Get-PrefectureFromName $ename }
             $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=""; url=$evurl; source="coscam" }
             $newUrls += $evurl
         }

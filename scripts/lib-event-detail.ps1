@@ -110,6 +110,24 @@ function Get-PrefectureFromPlace($text, $prefList) {
     return ""
 }
 
+# 一覧ページで「イベント名の直前に都道府県が書いてある」形式から県を取る。
+#
+# 【2026-07-20 の事故その2】coscam の収集で、月ブロックの先頭から当該イベントまでの
+# テキスト全部を判定に渡していた。しかも判定は「都道府県リストの並び順で最初に一致したもの」を
+# 返す作りだったため、**その月の別のイベントの県**を拾っていた。
+# 17件中10件（59%）が誤り（恵那峡ワンダーランド→山形県、DCM in NUMAZU→宮城県 など）。
+# 朝に直した北海道バグと同じ構造。
+#
+# 対策: ①直前の限られた範囲だけ見る ②その中で**いちばん近い**（＝最後に出てくる）県を採る。
+function Get-PrefectureNearest($textBefore, $prefList, [int]$window = 300) {
+    if (-not $textBefore) { return "" }
+    $tail = if ($textBefore.Length -gt $window) { $textBefore.Substring($textBefore.Length - $window) } else { $textBefore }
+    $pattern = ($prefList | ForEach-Object { [regex]::Escape($_) }) -join '|'
+    $last = ""
+    foreach ($m in [regex]::Matches($tail, $pattern)) { $last = $m.Value }
+    return $last
+}
+
 # 説明文を「自分の言葉で」組み立てる。
 #
 # 【方針】収集元サイトの説明文は**そのままコピーしない**。理由は2つ:
