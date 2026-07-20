@@ -4,6 +4,8 @@
 # ===================================================
 
 . "$PSScriptRoot\config.ps1"
+# 詳細ページから会場・住所・主催などを抽出する共通処理（enrich-event-details.ps1 と共用）
+. "$PSScriptRoot\lib-event-detail.ps1"
 
 function Write-Log($msg) {
     $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -252,8 +254,12 @@ try {
             }
             # ページ全体を渡さない（ナビメニューの「北海道」を拾う事故の対策）
             $epref = Get-PrefectureScoped $ename $plain
+            # 詳細ページから会場等を拾う。会場に県名が入っていればそれを優先する
+            $det = Get-EventDetailFields $dhtml
+            $pFromPlace = Get-PrefectureFromPlace "$($det.venue) $($det.address)" $PREF_NAMES
+            if ($pFromPlace) { $epref = $pFromPlace }
             if ($ename.Length -ge 3 -and $edate) {
-                $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=""; url=$eurl; source="racry" }
+                $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=$det.venue; url=$eurl; source="racry"; detail=$det }
                 $newUrls += $eurl
             }
         } catch {}
@@ -575,8 +581,12 @@ try {
             if (-not $edate) { continue }
             # ページ全体($dplain)を渡さない。2026-07-20にここが原因で32件中19件が誤って北海道になった
             $epref = Get-PrefectureScoped $ename $dplain
+            # 詳細ページに会場・住所・主催・時間・料金が載っているので拾う
+            $det = Get-EventDetailFields $dhtml
+            $pFromPlace = Get-PrefectureFromPlace "$($det.venue) $($det.address)" $PREF_NAMES
+            if ($pFromPlace) { $epref = $pFromPlace }
             if ($ename.Length -ge 4) {
-                $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=""; url=$link; source="careventnavi" }
+                $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=$det.venue; url=$link; source="careventnavi"; detail=$det }
                 $newUrls += $link
             }
             Start-Sleep -Milliseconds 400
@@ -665,8 +675,9 @@ try {
                 $epref = ""
                 if ($link -match 'https://jmty\.jp/([a-z]+)/') { $epref = $JMTY_PREF[$Matches[1]] }
                 if (-not $epref) { $epref = Get-PrefectureScoped $ename $dhtml }
+                $det = Get-EventDetailFields $dhtml
                 if ($ename.Length -ge 4 -and $edate) {
-                    $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=""; url=$link; source="jmty" }
+                    $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=$det.venue; url=$link; source="jmty"; detail=$det }
                     $newUrls += $link
                 }
                 Start-Sleep -Milliseconds 300
@@ -687,6 +698,7 @@ if ($existingNewEvents.Count -gt 0) {
 }
 
 $today = (Get-Date).Date
+$jpDowNames = @("日","月","火","水","木","金","土")
 $newEventObjects = @()
 foreach ($ev in $discoveredEvents) {
     # ④ 過去イベントを除外（今日より前の日付はスキップ）
@@ -694,7 +706,7 @@ foreach ($ev in $discoveredEvents) {
     $region = if ($REGION_MAP.ContainsKey($ev.prefecture)) { $REGION_MAP[$ev.prefecture] } else { "その他" }
     # ② カテゴリを自動分類
     $cat = Get-CategoryFromName $ev.name $ev.source
-    $newEventObjects += [PSCustomObject]@{
+    $obj = [PSCustomObject]@{
         id          = $nextId
         name        = $ev.name
         date        = $ev.date
@@ -708,6 +720,12 @@ foreach ($ev in $discoveredEvents) {
         featured    = $false
         source      = $ev.source
     }
+    # 詳細ページから拾えた事実があれば、それだけを使って説明文を組み立てる。
+    # 収集元の文章はコピーしない（著作権＋重複コンテンツ）。データに無いことは書かない。
+    if ($ev.PSObject.Properties.Name -contains 'detail' -and $ev.detail) {
+        $obj.description = New-EventDescription $obj $ev.detail $jpDowNames
+    }
+    $newEventObjects += $obj
     $nextId++
 }
 
