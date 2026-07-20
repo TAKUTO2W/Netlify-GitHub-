@@ -786,7 +786,9 @@ function Test-CarEventName($name) {
     $n = $n -replace '駐車場|駐車|電車|列車|自転車|車椅子|車いす|乗車|下車|発車|停車|車内|歯車|風車|water|water車', ''
 
     # ③ 車のイベントを示す語
-    return ($n -match 'クルマ|くるま|自動車|旧車|痛車|輸入車|中古車|新車|名車|愛車|試乗|モーターショー|オートサロン|オートモービル|カーミーティング|カーフェス|カーショー|ミーティング|オフ会|ドリフト|ジムカーナ|サーキット|走行会|ラリー|ダートトライアル|MOTOR|Motor|AUTO SALON|トヨタ|日産|ニッサン|ホンダ|マツダ|スバル|ダイハツ|スズキ|レクサス|ベンツ|BMW|アウディ|ポルシェ|フェラーリ|MAZDA|TOYOTA|NISSAN|HONDA|SUBARU')
+    # ※「ミーティング」単体は入れないこと。「69期社内キックオフミーティング」を
+    #   取り込んでしまった（2026-07-20）。車のミーティングは カー/旧車/痛車 等で拾える。
+    return ($n -match 'クルマ|くるま|自動車|旧車|痛車|輸入車|中古車|新車|名車|愛車|試乗|モーターショー|オートサロン|オートモービル|カーミーティング|カーフェス|カーショー|カーイベント|オフ会|ドリフト|ジムカーナ|サーキット|走行会|ラリー|ダートトライアル|MOTOR|Motor|AUTO SALON|トヨタ|日産|ニッサン|ホンダ|マツダ|スバル|ダイハツ|スズキ|レクサス|ベンツ|BMW|アウディ|ポルシェ|フェラーリ|MAZDA|TOYOTA|NISSAN|HONDA|SUBARU')
 }
 
 # --- 福井県産業会館 ---
@@ -839,6 +841,75 @@ try {
     Write-Log "出島メッセ長崎: $($discoveredEvents.Count - $before) 件の新規候補"
 } catch {
     Write-Log "出島メッセ長崎 の取得に失敗: $($_.Exception.Message)"
+}
+
+# ===== 旧車催事暦（midoriga-oka.com） =====
+# 全国の旧車イベントを月別に一覧化した個人サイト。
+# 「日付 / 時間 / イベント名 / 都道府県+市郡 / 会場」の5列テーブルで、
+# 4項目が最初から揃っている数少ないソース。会場データの底上げにも効く。
+#
+# 利用規約に相当する torisetu.htm に「リンクはフリーです。ご自由にお使い下さい。」とあり、
+# 無断使用・転載・複製を禁じる条項は無い（2026-07-20 に本文を確認）。
+#
+# 注意: Shift_JIS。UTF-8として読むと文字化けする。日付も全角数字。
+Write-Log "旧車催事暦 を取得中..."
+try {
+    $sjis = [Text.Encoding]::GetEncoding("Shift_JIS")
+    $before = $discoveredEvents.Count
+    $nowY = (Get-Date).Year; $nowM = (Get-Date).Month
+
+    # 今月から12ヶ月先まで見る（年をまたぐ）
+    for ($i = 0; $i -lt 12; $i++) {
+        $ym = (Get-Date).AddMonths($i)
+        $pageUrl = "https://www.midoriga-oka.com/yog/ivc{0}{1}.htm" -f ($ym.Year % 100), $ym.Month.ToString('00')
+        try {
+            $res = Invoke-WebRequest -Uri $pageUrl -UseBasicParsing -TimeoutSec 15
+        } catch { continue }
+        $page = $sjis.GetString($res.RawContentStream.ToArray())
+
+        foreach ($tr in [regex]::Matches($page, '(?s)<TR>(.*?)</TR>', 'IgnoreCase')) {
+            $tds = @([regex]::Matches($tr.Groups[1].Value, '(?s)<TD[^>]*>(.*?)</TD>', 'IgnoreCase') |
+                     ForEach-Object { (($_.Groups[1].Value -replace '<[^>]+>','') -replace '[\s　]+',' ').Trim() })
+            if ($tds.Count -lt 5) { continue }
+
+            # 全角数字を半角に直してから日付を読む（「１０月　４日」形式）
+            $dcell = $tds[0]
+            foreach ($pair in @(@('０','0'),@('１','1'),@('２','2'),@('３','3'),@('４','4'),@('５','5'),@('６','6'),@('７','7'),@('８','8'),@('９','9'))) {
+                $dcell = $dcell.Replace($pair[0], $pair[1])
+            }
+            if ($dcell -notmatch '(\d{1,2})\s*月\s*(\d{1,2})\s*日') { continue }
+            $mo = [int]$Matches[1]; $dy = [int]$Matches[2]
+
+            # ページの年月とセルの月がずれる場合があるので、ページ側の年を基準にする
+            $yr = $ym.Year
+            if ($mo -lt $ym.Month -and $ym.Month -ge 11) { $yr = $ym.Year + 1 }
+            $edate = "{0}-{1:00}-{2:00}" -f $yr, $mo, $dy
+            try { if ([datetime]$edate -lt (Get-Date).Date) { continue } } catch { continue }
+
+            $ename = $tds[2]
+            if (-not $ename -or $ename.Length -lt 3 -or $ename -match '^(イベント名|催事名)$') { continue }
+
+            $epref = ""
+            foreach ($p in $PREFS) { if ($tds[3] -match [regex]::Escape($p)) { $epref = $p; break } }
+            $evenue = $tds[4]
+            if ($evenue -match '^(会場|開催地)$') { $evenue = "" }
+
+            # このサイトは1ページに複数イベントが並ぶだけでイベント個別URLが無い。
+            # 名前と日付で一意なURLを作って重複判定に使う。
+            $eurl = "https://www.midoriga-oka.com/yog/infome.htm#$edate-$($ename -replace '\s','')"
+            if ($eurl -in $knownUrls) { continue }
+
+            $discoveredEvents += [PSCustomObject]@{
+                name = $ename; date = $edate; prefecture = $epref; venue = $evenue
+                url = $eurl; source = "yogcal"
+            }
+            $newUrls += $eurl
+        }
+        Start-Sleep -Milliseconds 400
+    }
+    Write-Log "旧車催事暦: $($discoveredEvents.Count - $before) 件の新規候補"
+} catch {
+    Write-Log "旧車催事暦 の取得に失敗: $($_.Exception.Message)"
 }
 
 # ===== 新規イベントをIDを付けてマージ =====
