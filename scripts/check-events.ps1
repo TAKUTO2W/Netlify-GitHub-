@@ -759,6 +759,88 @@ try {
     Write-Log "JMRC四国(ICS) の取得に失敗: $($_.Exception.Message)"
 }
 
+# ===== 会場のイベントカレンダー（一般イベントに混ざったカーイベントを拾う） =====
+#
+# 展示場・タワー等のカレンダーは車以外のイベントが大半なので、名前で絞る必要がある。
+# 2026-07-20 追加。福井・長崎の空白を埋めるのが目的。
+#
+# 【重要】ここに載せてよいのは、利用規約に無断転載・複製の禁止条項が無いことを
+# 実際に本文を読んで確認した会場だけ。幕張メッセ・東京ビッグサイト・朱鷺メッセ・
+# 石川県産業展示館・ポートメッセなごや・とりぎん文化会館・ビッグパレットふくしまは
+# 明確な禁止条項があるため入れないこと（→ HANDOVER §7 の不採用リスト）。
+
+# 車のイベントかどうかを名前で判定する。
+#
+# 【注意】「カー」「車」は部分一致の誤検出が非常に多い。
+# 2026-07-20 に雑な判定で「キッチンカーの開業セミナー」「医療ソーシャルワーカー協会 研修会」
+# 「長崎県サッカー協会 第2回理事会」を取り込んでしまった。
+# 対策として、紛らわしい語を先に消してから判定する。
+# 取りこぼすより誤って載せる方が害が大きいので、判定は厳しめにしてある。
+function Test-CarEventName($name) {
+    # ① 実車のイベントでないもの
+    if ($name -match 'ラジコン|RCカー|R/Cカー|タミヤ|ミニ四駆|プラモデル|ミニカー|チョロQ') { return $false }
+
+    # ② 「カー」「車」を含むが車と無関係な語を先に消す
+    $n = $name
+    $n = $n -replace 'サッカー|ワーカー|キッチンカー|フードカー|ベビーカー|スニーカー|メーカー|ロッカー|スピーカー|マーカー|ハッカー|ステッカー|チェッカー|トラッカー|ウォーカー|エスカレーター|ケアマネージャー', ''
+    $n = $n -replace '駐車場|駐車|電車|列車|自転車|車椅子|車いす|乗車|下車|発車|停車|車内|歯車|風車|water|water車', ''
+
+    # ③ 車のイベントを示す語
+    return ($n -match 'クルマ|くるま|自動車|旧車|痛車|輸入車|中古車|新車|名車|愛車|試乗|モーターショー|オートサロン|オートモービル|カーミーティング|カーフェス|カーショー|ミーティング|オフ会|ドリフト|ジムカーナ|サーキット|走行会|ラリー|ダートトライアル|MOTOR|Motor|AUTO SALON|トヨタ|日産|ニッサン|ホンダ|マツダ|スバル|ダイハツ|スズキ|レクサス|ベンツ|BMW|アウディ|ポルシェ|フェラーリ|MAZDA|TOYOTA|NISSAN|HONDA|SUBARU')
+}
+
+# --- 福井県産業会館 ---
+Write-Log "福井県産業会館 を取得中..."
+try {
+    $res = Invoke-WebRequest -Uri "https://sankan.sankan.jp/eventinfo/" -UseBasicParsing -TimeoutSec 30
+    $html = $res.Content
+    $before = $discoveredEvents.Count
+    foreach ($m in [regex]::Matches($html, '(?s)<a href="(https://sankan\.sankan\.jp/eventinfo/[^"]+)"[^>]*>.*?<h2>([^<]{3,60})</h2>(.*?)(?=<div class="ei-main"|</section|$)')) {
+        $eurl  = $m.Groups[1].Value
+        $ename = Decode-Html $m.Groups[2].Value.Trim()
+        $rest  = $m.Groups[3].Value
+        if (-not (Test-CarEventName $ename)) { continue }
+        if ($eurl -in $knownUrls) { continue }
+        if ($rest -notmatch '(\d{4})\.(\d{1,2})\.(\d{1,2})') { continue }
+        $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
+        $evenue = if ($rest -match '(\d号館展示場|多目的ホール|屋外展示場)') { "福井県産業会館 $($Matches[1])" } else { "福井県産業会館" }
+        $discoveredEvents += [PSCustomObject]@{
+            name = $ename; date = $edate; prefecture = "福井県"; venue = $evenue
+            url = $eurl; source = "sankan-fukui"
+        }
+        $newUrls += $eurl
+    }
+    Write-Log "福井県産業会館: $($discoveredEvents.Count - $before) 件の新規候補"
+} catch {
+    Write-Log "福井県産業会館 の取得に失敗: $($_.Exception.Message)"
+}
+
+# --- 出島メッセ長崎 ---
+Write-Log "出島メッセ長崎 を取得中..."
+try {
+    $res = Invoke-WebRequest -Uri "https://dejima-messe.jp/event" -UseBasicParsing -TimeoutSec 30
+    $html = $res.Content
+    $before = $discoveredEvents.Count
+    foreach ($m in [regex]::Matches($html, '(?s)<li class="fadeInUp[^"]*">\s*<a href="([^"]+)"(.*?)</li>')) {
+        $eurl = $m.Groups[1].Value
+        $blk  = $m.Groups[2].Value
+        if ($blk -notmatch '<dt class="event_ttl">([^<]{3,80})</dt>') { continue }
+        $ename = Decode-Html $Matches[1].Trim()
+        if (-not (Test-CarEventName $ename)) { continue }
+        if ($eurl -in $knownUrls) { continue }
+        if ($blk -notmatch '開催日</th>\s*<td>(\d{4})年(\d{1,2})月(\d{1,2})日') { continue }
+        $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
+        $discoveredEvents += [PSCustomObject]@{
+            name = $ename; date = $edate; prefecture = "長崎県"; venue = "出島メッセ長崎"
+            url = $eurl; source = "dejima-messe"
+        }
+        $newUrls += $eurl
+    }
+    Write-Log "出島メッセ長崎: $($discoveredEvents.Count - $before) 件の新規候補"
+} catch {
+    Write-Log "出島メッセ長崎 の取得に失敗: $($_.Exception.Message)"
+}
+
 # ===== 新規イベントをIDを付けてマージ =====
 $nextId = $NEW_EVENT_START_ID
 if ($existingNewEvents.Count -gt 0) {
