@@ -690,6 +690,71 @@ try {
     Write-Log "jmty.jp エラー: $_"
 }
 
+# ===== JMRC四国（Googleカレンダーの公開ICSフィード） =====
+# 四国4県のモータースポーツ競技会。HTMLではなくICS（iCalendar）なので解析が確実。
+# LOCATION に住所が入っているため、会場と都道府県が最初から正確に取れる。
+# 2026-07-20 追加。徳島・高知・愛媛の空白を埋めるのが目的。
+Write-Log "JMRC四国(ICS) を取得中..."
+try {
+    $icsUrl = "https://calendar.google.com/calendar/ical/g6nf29eiu125m7ormpiqedpbj8%40group.calendar.google.com/public/basic.ics"
+    $res = Invoke-WebRequest -Uri $icsUrl -UseBasicParsing -TimeoutSec 30
+    $ics = [Text.Encoding]::UTF8.GetString($res.RawContentStream.ToArray())
+    $ics = $ics -replace "`r`n ", ""      # ICSの行折り返しを戻す
+    $before = $discoveredEvents.Count
+    $todayIcs = (Get-Date).ToString('yyyyMMdd')
+
+    foreach ($m in [regex]::Matches($ics, '(?s)BEGIN:VEVENT(.*?)END:VEVENT')) {
+        $b = $m.Groups[1].Value
+        if ($b -notmatch 'DTSTART[^:]*:(\d{8})') { continue }
+        $dt = $Matches[1]
+        if ($dt -lt $todayIcs) { continue }
+
+        $sum = if ($b -match 'SUMMARY:(.+)') { ($Matches[1] -replace '\\,', ',' -replace '\\;', ';').Trim() } else { "" }
+        if (-not $sum) { continue }
+
+        # 一般来場者向けでないものは除外する。
+        # このカレンダーには主催者内部の会議や、参加資格を取るための講習会も入っている。
+        # サイトに載せると「行けないイベント」が並ぶことになるので入れない。
+        if ($sum -match '総会|運営委員会|理事会|会議|打合せ|打ち合わせ|講習会|説明会|表彰式|セミナー') { continue }
+
+        $loc = if ($b -match 'LOCATION:(.+)') { ($Matches[1] -replace '\\,', ',' -replace '\\n', ' ').Trim() } else { "" }
+        $epref = ""
+        foreach ($p in $PREFS) { if ($loc -match [regex]::Escape($p)) { $epref = $p; break } }
+
+        # 先方のカレンダーには会場の登録ミスがある。
+        # 例: 「【全日本ラリー】福島伊達」の LOCATION が「愛知県」になっている。
+        # イベント名から読める県と会場の県が食い違う場合は、どちらが正しいか判断できないので
+        # 「未定」にする（誤った県を断言するより良い）。
+        $prefFromName = Get-PrefectureFromName $sum
+        if ($epref -and $prefFromName -and $prefFromName -ne $epref) {
+            Write-Log "JMRC四国: 県が不一致のため未定にした「$sum」(名前=$prefFromName / 会場=$epref)"
+            $epref = ""
+        }
+
+        # LOCATION の先頭が会場名。ただし「高知県」のように県名しか無い場合は会場として扱わない
+        $evenue = ($loc -split ',')[0].Trim()
+        $evenue = ($evenue -replace '〒\d{3}-?\d{4}', '').Trim()
+        if ($PREFS -contains $evenue -or $evenue -eq '日本') { $evenue = "" }
+
+        $edate = "$($dt.Substring(0,4))-$($dt.Substring(4,2))-$($dt.Substring(6,2))"
+
+        # このカレンダーは1つのサイトを指すので、URLだけでは重複判定できない。
+        # ICSのUIDを付けてイベントごとに一意なURLにする。
+        $uid = if ($b -match 'UID:(.+)') { $Matches[1].Trim() } else { "$dt-$sum" }
+        $eurl = "https://www.jmrc-shikoku.gr.jp/#$uid"
+        if ($eurl -in $knownUrls) { continue }
+
+        $discoveredEvents += [PSCustomObject]@{
+            name = $sum; date = $edate; prefecture = $epref; venue = $evenue
+            url = $eurl; source = "jmrcshikoku"
+        }
+        $newUrls += $eurl
+    }
+    Write-Log "JMRC四国(ICS): $($discoveredEvents.Count - $before) 件の新規候補"
+} catch {
+    Write-Log "JMRC四国(ICS) の取得に失敗: $($_.Exception.Message)"
+}
+
 # ===== 新規イベントをIDを付けてマージ =====
 $nextId = $NEW_EVENT_START_ID
 if ($existingNewEvents.Count -gt 0) {
