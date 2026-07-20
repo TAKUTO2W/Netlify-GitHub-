@@ -345,6 +345,13 @@
           </select>
         </div>
         <div class="filter-group">
+          <div class="filter-label">都道府県</div>
+          <!-- 中身は app.js が実データから作る。イベントがある県だけを件数付きで出す -->
+          <select class="filter-select" id="pref-select">
+            <option value="すべて">すべての都道府県</option>
+          </select>
+        </div>
+        <div class="filter-group">
           <div class="filter-label">検索</div>
           <div class="search-wrap">
             <i class="ti ti-search search-icon"></i>

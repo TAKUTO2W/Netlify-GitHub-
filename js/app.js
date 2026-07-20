@@ -13,6 +13,7 @@ let state = {
   year: _now.getFullYear(),
   month: _now.getMonth() + 1,
   region: 'すべて',
+  prefecture: 'すべて',
   category: 'すべて',
   search: '',
   activeRegion: null,
@@ -56,20 +57,27 @@ function updateFavBadge() {
 }
 
 // ===== HELPERS =====
+// skipPrefecture=true で「都道府県以外の条件だけ」を適用する。
+// 都道府県セレクトの件数表示に使う。ここを分けないと、
+// 「徳島県（3）」と出ているのに選ぶと0件、という嘘の数字になる（月フィルタで消えるため）。
+function matchesFilters(e, skipPrefecture) {
+  const d = new Date(e.date);
+  if (state.view !== 'favorites' && d.getFullYear() !== state.year) return false;
+  if (state.view === 'favorites' && !isFavorite(e.id)) return false;
+  if (state.month !== 'all' && d.getMonth() + 1 !== state.month) return false;
+  if (state.region !== 'すべて' && e.region !== state.region) return false;
+  if (!skipPrefecture && state.prefecture !== 'すべて' && e.prefecture !== state.prefecture) return false;
+  if (state.category !== 'すべて' && e.category !== state.category) return false;
+  if (state.search) {
+    const q = state.search.toLowerCase();
+    if (!e.name.toLowerCase().includes(q) && !e.prefecture.toLowerCase().includes(q) && !e.venue.toLowerCase().includes(q)) return false;
+  }
+  return true;
+}
+
 function getFilteredEvents() {
-  return EVENTS_DATA.filter(e => {
-    const d = new Date(e.date);
-    if (state.view !== 'favorites' && d.getFullYear() !== state.year) return false;
-    if (state.view === 'favorites' && !isFavorite(e.id)) return false;
-    if (state.month !== 'all' && d.getMonth() + 1 !== state.month) return false;
-    if (state.region !== 'すべて' && e.region !== state.region) return false;
-    if (state.category !== 'すべて' && e.category !== state.category) return false;
-    if (state.search) {
-      const q = state.search.toLowerCase();
-      if (!e.name.toLowerCase().includes(q) && !e.prefecture.toLowerCase().includes(q) && !e.venue.toLowerCase().includes(q)) return false;
-    }
-    return true;
-  }).sort((a, b) => new Date(a.date) - new Date(b.date));
+  return EVENTS_DATA.filter(e => matchesFilters(e, false))
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
 }
 
 function formatDate(d) {
@@ -349,6 +357,8 @@ function renderJapanMap(events) {
 // ===== MAIN RENDER =====
 function renderMain() {
   const container = document.getElementById('main-content');
+  // 月・カテゴリ・検索が変わると県ごとの件数も変わるので、描画のたびに作り直す
+  buildPrefectureOptions();
   const events = state.view === 'favorites' ? [] : getFilteredEvents();
 
   if (state.view !== 'favorites') {
@@ -488,8 +498,54 @@ document.querySelectorAll('.filter-chip').forEach(chip => {
   });
 });
 
+// ===== 都道府県セレクト =====
+// 選択肢はデータから作る。イベントが1件も無い県は出さない
+// （出しても「該当なし」にしかならず、カバーできていないことが目立つだけ）。
+// エリアが選ばれている場合は、その地方の県だけに絞る。
+function buildPrefectureOptions() {
+  const sel = document.getElementById('pref-select');
+  if (!sel) return;
+
+  // 件数は「実際に表示される数」と一致させる。
+  // 月・カテゴリ・検索語の条件も効かせないと、選んだ瞬間に0件になって混乱する。
+  const skip = new Set(['未定', '（海外）', '']);
+  const counts = {};
+  EVENTS_DATA.forEach(e => {
+    if (!e.prefecture || skip.has(e.prefecture)) return;
+    if (!matchesFilters(e, true)) return;
+    counts[e.prefecture] = (counts[e.prefecture] || 0) + 1;
+  });
+
+  // 北から南の順に並べる（五十音順だと地理感覚と合わない）
+  const ORDER = ['北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県',
+    '茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県',
+    '新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県','静岡県','愛知県',
+    '三重県','滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県',
+    '鳥取県','島根県','岡山県','広島県','山口県',
+    '徳島県','香川県','愛媛県','高知県',
+    '福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県'];
+
+  const opts = ['<option value="すべて">すべての都道府県</option>'];
+  ORDER.forEach(p => {
+    if (!counts[p]) return;
+    opts.push(`<option value="${p}">${p}（${counts[p]}）</option>`);
+  });
+  sel.innerHTML = opts.join('');
+
+  // エリアを切り替えたときに、選択中の県がその地方に無ければ「すべて」に戻す
+  if (state.prefecture !== 'すべて' && !counts[state.prefecture]) {
+    state.prefecture = 'すべて';
+  }
+  sel.value = state.prefecture;
+}
+
 document.getElementById('region-select').addEventListener('change', e => {
   state.region = e.target.value;
+  renderMain();   // renderMain の中で都道府県の選択肢も作り直される
+});
+
+document.getElementById('pref-select').addEventListener('change', e => {
+  state.prefecture = e.target.value;
   renderMain();
 });
 
@@ -563,6 +619,7 @@ function renderUpdateBanner() {
 })();
 
 renderStats();
+buildPrefectureOptions();
 renderTicker();
 renderQuickSection();
 renderMain();
