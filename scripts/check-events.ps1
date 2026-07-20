@@ -20,6 +20,10 @@ function Decode-Html($str) {
     $str = $str -replace '&nbsp;', ' '
     # 数値参照 &#nnn;
     $str = [regex]::Replace($str, '&#(\d+);', { [char][int]$args[0].Groups[1].Value })
+    # 16進数参照 &#x27; など（これが漏れていて、イベント名に &#x27; が残っていた）
+    $str = [regex]::Replace($str, '&#[xX]([0-9a-fA-F]+);', { [char][Convert]::ToInt32($args[0].Groups[1].Value, 16) })
+    # &amp;#x27; のように二重エスケープされている場合にも対応
+    $str = [regex]::Replace($str, '&#[xX]([0-9a-fA-F]+);', { [char][Convert]::ToInt32($args[0].Groups[1].Value, 16) })
     return $str.Trim()
 }
 
