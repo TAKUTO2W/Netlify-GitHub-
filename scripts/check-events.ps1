@@ -105,7 +105,7 @@ function Get-PrefectureFromName($name) {
         "香川|高松" = "香川県"
         "愛媛|松山" = "愛媛県"
         "高知" = "高知県"
-        "福岡|博多|北九州" = "福岡県"
+        "福岡|博多|北九州|門司|小倉" = "福岡県"
         "佐賀" = "佐賀県"
         "長崎" = "長崎県"
         "熊本|肥後" = "熊本県"
@@ -118,6 +118,48 @@ function Get-PrefectureFromName($name) {
         if ($name -match $pattern) { return $map[$pattern] }
     }
     return ""
+}
+
+# 都道府県を「イベント名を最優先・文脈は最小限だけ」で推定する。
+#
+# 【2026-07-20の事故】ページ全体のテキストを Get-PrefectureFromName に渡していたため、
+# サイトのナビメニューに含まれる「北海道」を拾って無関係なイベントが北海道になっていた。
+# 上の $map は [ordered]（順番固定）で北海道が先頭なので、最初にヒットして即returnしてしまう。
+# careventnavi は 32件中19件（59%）が誤って北海道になっていた。
+#
+# 対策: ①名前だけで判定 → ②開催地ラベルの直後40文字だけ見る → ③分からなければ空。
+# 誤った都道府県より「未定」の方がマシ、という方針。
+function Get-PrefectureScoped($name, $context) {
+    # ① イベント名だけで判定できるならそれが最も確実
+    $p = Get-PrefectureFromName $name
+    if ($p) { return $p }
+
+    # ② 開催地・会場ラベルの直後だけを見る（ナビメニューを拾わないため）
+    if ($context) {
+        $labels = '開催場所|開催地|開催県|会場|場所|住所|所在地|アクセス'
+        foreach ($m in [regex]::Matches($context, "($labels)[^\p{L}\p{N}]{0,6}(.{0,40})")) {
+            $p = Get-PrefectureFromName $m.Groups[2].Value
+            if ($p) { return $p }
+        }
+    }
+
+    # ③ 分からないものは空（呼び出し元で「未定」になる）
+    return ""
+}
+
+# jmty.jp は URL に都道府県がローマ字で入っている（https://jmty.jp/{pref}/eve-.../article-...）。
+# 本文を読むより確実なので、URLから引く。
+$JMTY_PREF = @{
+    hokkaido="北海道"; aomori="青森県"; iwate="岩手県"; miyagi="宮城県"; akita="秋田県"
+    yamagata="山形県"; fukushima="福島県"; ibaraki="茨城県"; tochigi="栃木県"; gunma="群馬県"
+    saitama="埼玉県"; chiba="千葉県"; tokyo="東京都"; kanagawa="神奈川県"; niigata="新潟県"
+    toyama="富山県"; ishikawa="石川県"; fukui="福井県"; yamanashi="山梨県"; nagano="長野県"
+    gifu="岐阜県"; shizuoka="静岡県"; aichi="愛知県"; mie="三重県"; shiga="滋賀県"
+    kyoto="京都府"; osaka="大阪府"; hyogo="兵庫県"; nara="奈良県"; wakayama="和歌山県"
+    tottori="鳥取県"; shimane="島根県"; okayama="岡山県"; hiroshima="広島県"; yamaguchi="山口県"
+    tokushima="徳島県"; kagawa="香川県"; ehime="愛媛県"; kochi="高知県"; fukuoka="福岡県"
+    saga="佐賀県"; nagasaki="長崎県"; kumamoto="熊本県"; oita="大分県"; miyazaki="宮崎県"
+    kagoshima="鹿児島県"; okinawa="沖縄県"
 }
 
 Write-Log "=== check-events.ps1 開始 ==="
@@ -204,8 +246,8 @@ try {
             if (-not $edate -and $dhtml -match '(\d{4})年(\d{1,2})月(\d{1,2})日') {
                 $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
             }
-            $epref = Get-PrefectureFromName "$ename $plain"
-            if (-not $epref) { $epref = Get-Prefecture "$plain $dhtml" }
+            # ページ全体を渡さない（ナビメニューの「北海道」を拾う事故の対策）
+            $epref = Get-PrefectureScoped $ename $plain
             if ($ename.Length -ge 3 -and $edate) {
                 $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=""; url=$eurl; source="racry" }
                 $newUrls += $eurl
@@ -527,8 +569,8 @@ try {
                 } catch {}
             }
             if (-not $edate) { continue }
-            $epref = Get-PrefectureFromName "$ename $dplain"
-            if (-not $epref) { $epref = Get-Prefecture $dplain }
+            # ページ全体($dplain)を渡さない。2026-07-20にここが原因で32件中19件が誤って北海道になった
+            $epref = Get-PrefectureScoped $ename $dplain
             if ($ename.Length -ge 4) {
                 $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=""; url=$link; source="careventnavi" }
                 $newUrls += $link
@@ -615,8 +657,10 @@ try {
                 } elseif ($dhtml -match '(\d{4})年(\d{1,2})月(\d{1,2})日') {
                     $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
                 }
-                $epref = Get-PrefectureFromName $ename
-                if (-not $epref) { $epref = Get-Prefecture $dhtml }
+                # URLのローマ字（https://jmty.jp/{pref}/...）が最も確実。次点で名前・開催地ラベル
+                $epref = ""
+                if ($link -match 'https://jmty\.jp/([a-z]+)/') { $epref = $JMTY_PREF[$Matches[1]] }
+                if (-not $epref) { $epref = Get-PrefectureScoped $ename $dhtml }
                 if ($ename.Length -ge 4 -and $edate) {
                     $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=""; url=$link; source="jmty" }
                     $newUrls += $link

@@ -1,3 +1,7 @@
 scripts/run.log
 scripts/config.ps1
 note-drafts/
+
+# 修正スクリプトが残すバックアップ（コミットしない）
+*.bak
+*.bak-*
