@@ -107,11 +107,11 @@
 
   <div class="stats-row">
     <div class="stat-box">
-      <div class="stat-box-num">126<span style="font-size:1rem">+</span></div>
+      <div class="stat-box-num" id="sp-total">—<span style="font-size:1rem">+</span></div>
       <div class="stat-box-label">掲載イベント数</div>
     </div>
     <div class="stat-box">
-      <div class="stat-box-num">27</div>
+      <div class="stat-box-num" id="sp-prefs">—</div>
       <div class="stat-box-label">都道府県カバー</div>
     </div>
     <div class="stat-box">
@@ -211,6 +211,29 @@
     </div>
   </div>
 </footer>
+
+<!-- 掲載実績の数字はデータから数える。以前は 126+ / 27 を直接書いていたため
+     データが増えても更新されず、実態とずれていた（2026-07-20 に修正）。
+     スポンサー向けの数字なので、実態と一致していることが特に重要。 -->
+<script src="data/new-events.js"></script>
+<script src="js/events-data.js"></script>
+<script>
+  (function () {
+    var all = (typeof EVENTS_DATA !== 'undefined') ? EVENTS_DATA.slice() : [];
+    if (window.NEW_EVENTS) {
+      var ids = new Set(all.map(function (e) { return e.id; }));
+      NEW_EVENTS.forEach(function (e) { if (!ids.has(e.id)) all.push(e); });
+    }
+    var skip = { '未定': 1, '（海外）': 1, '': 1 };
+    var prefs = new Set();
+    all.forEach(function (e) { if (e.prefecture && !skip[e.prefecture]) prefs.add(e.prefecture); });
+
+    var t = document.getElementById('sp-total');
+    if (t) t.innerHTML = all.length + '<span style="font-size:1rem">+</span>';
+    var p = document.getElementById('sp-prefs');
+    if (p) p.textContent = prefs.size;
+  })();
+</script>
 
 </body>
 </html>

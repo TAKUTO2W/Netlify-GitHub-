@@ -438,9 +438,22 @@ function renderQuickSection() {
 }
 
 // ===== STAT COUNT =====
+// 「カバーエリア」は以前 index.html に 27 を直接書いていたため、
+// データが増えても増えず実態とずれ続けていた（2026-07-20 に発覚）。
+// 数字を出すならデータから数える。手打ちしない。
+function countPrefectures() {
+  const skip = new Set(['未定', '（海外）', '']);
+  return new Set(
+    EVENTS_DATA.map(e => e.prefecture).filter(p => p && !skip.has(p))
+  ).size;
+}
+
 function renderStats() {
   const el = document.getElementById('stat-total');
   if (el) el.innerHTML = `${EVENTS_DATA.length}<span>件</span>`;
+
+  const pe = document.getElementById('stat-prefs');
+  if (pe) pe.innerHTML = `${countPrefectures()}<span>都道府県</span>`;
 }
 
 // ===== EVENT BINDINGS =====
