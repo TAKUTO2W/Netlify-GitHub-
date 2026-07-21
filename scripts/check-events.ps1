@@ -912,6 +912,73 @@ try {
     Write-Log "旧車催事暦 の取得に失敗: $($_.Exception.Message)"
 }
 
+# ===== 名阪スポーツランド（奈良） =====
+# 奈良県内のカーイベントの大半がここで開催されている。月別の走行会予定表が静的HTMLの表。
+#
+# 【実装上の注意】
+#  - **HTTPS非対応**（443を開けていない）。平文HTTPで取得すること
+#  - Shift_JIS
+#  - 表の構造: 1列目=「4日 （火）」、4列目=「COZY練 ジ」のように主催者名＋種別記号が入る
+#    種別記号: ド=ドリフト ジ=ジムカーナ カ=カート ミ=ミニバイク モ=モトクロス モタ=モタード ソ=その他
+#  - 四輪だけを採る。ミニバイク・モトクロス・モタード・カートは二輪/カートなので除外
+#
+# robots.txt は msnbot への Crawl-delay のみで、一般クローラへの制限は無い（2026-07-20 確認）。
+Write-Log "名阪スポーツランド を取得中..."
+try {
+    $sjis = [Text.Encoding]::GetEncoding("Shift_JIS")
+    $ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+    $before = $discoveredEvents.Count
+
+    for ($i = 0; $i -lt 6; $i++) {
+        $ym = (Get-Date).AddMonths($i)
+        # ページ名は 08.htm / 09.htm …、10月以降は 010.htm 形式（先頭に0が付く）
+        $pageName = if ($ym.Month -lt 10) { "{0:00}.htm" -f $ym.Month } else { "0{0}.htm" -f $ym.Month }
+        try {
+            $res = Invoke-WebRequest -Uri "http://web1.kcn.jp/meihansl/$pageName" -UseBasicParsing -TimeoutSec 20 -Headers @{ "User-Agent" = $ua }
+        } catch { continue }
+        $page = $sjis.GetString($res.RawContentStream.ToArray())
+
+        foreach ($tr in [regex]::Matches($page, '(?s)<TR[^>]*>(.*?)</TR>', 'IgnoreCase')) {
+            # Decode-Html を通して実体参照を戻す（「T&amp;M」→「T&M」）
+            $tds = @([regex]::Matches($tr.Groups[1].Value, '(?s)<TD[^>]*>(.*?)</TD>', 'IgnoreCase') |
+                     ForEach-Object { Decode-Html ((($_.Groups[1].Value -replace '<[^>]+>','') -replace '&nbsp;',' ' -replace '[\s　]+',' ').Trim()) })
+            if ($tds.Count -lt 4) { continue }
+            if ($tds[0] -notmatch '(\d{1,2})\s*日') { continue }
+            $dy = [int]$Matches[1]
+
+            # 4列目（Cコース＝四輪のドリフト/ジムカーナ枠）を見る
+            $cell = $tds[3]
+            if (-not $cell -or $cell -match '定休日|貸切|練習走行|コース') { continue }
+
+            # 末尾の種別記号を取り出す。四輪（ド/ジ）以外は載せない
+            if ($cell -notmatch '^(.+?)\s*(ドリフト|ジムカーナ|ド|ジ|カ|ミ|モタ|モ|ソ)$') { continue }
+            $organizer = $Matches[1].Trim()
+            $kind = $Matches[2]
+            if ($kind -notin @('ド','ジ','ドリフト','ジムカーナ')) { continue }
+            if (-not $organizer -or $organizer.Length -lt 2) { continue }
+
+            $kindName = if ($kind -in @('ド','ドリフト')) { 'ドリフト走行会' } else { 'ジムカーナ' }
+            $ename = "$organizer $kindName"
+            $edate = "{0}-{1:00}-{2:00}" -f $ym.Year, $ym.Month, $dy
+            try { if ([datetime]$edate -lt (Get-Date).Date) { continue } } catch { continue }
+
+            # このサイトはイベント個別URLを持たないので、日付＋名前で一意なURLを作る
+            $eurl = "http://web1.kcn.jp/meihansl/$pageName#$edate-$($organizer -replace '\s','')"
+            if ($eurl -in $knownUrls) { continue }
+
+            $discoveredEvents += [PSCustomObject]@{
+                name = $ename; date = $edate; prefecture = "奈良県"; venue = "名阪スポーツランド"
+                url = $eurl; source = "meihan"
+            }
+            $newUrls += $eurl
+        }
+        Start-Sleep -Milliseconds 400
+    }
+    Write-Log "名阪スポーツランド: $($discoveredEvents.Count - $before) 件の新規候補"
+} catch {
+    Write-Log "名阪スポーツランド の取得に失敗: $($_.Exception.Message)"
+}
+
 # ===== 新規イベントをIDを付けてマージ =====
 $nextId = $NEW_EVENT_START_ID
 if ($existingNewEvents.Count -gt 0) {
