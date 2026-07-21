@@ -15,19 +15,27 @@
 # そこで「候補をレポートに出す→人が見て判断する」形にしている。
 # 公式サイトを持たずSNSでしか告知しない小規模イベントを見つけるのが狙い。
 #
-#   .\scan-x-events.ps1              … 検索してレポートを出す
+#   .\scan-x-events.ps1              … 水曜だけ実行される（daily-run から毎日呼ばれる前提）
+#   .\scan-x-events.ps1 -Force       … 曜日に関係なく今すぐ実行する
 #   .\scan-x-events.ps1 -MaxQueries 3 … 検索するキーワード数を絞る（費用調整）
 #
 # 【費用】読み取り $0.005/件。既存の従量課金クレジットから引かれる。
-#   1キーワード最大100件なので、5キーワードで最大500件＝約$2.5（約380円）/回。
-#   毎日動かすと月1万円を超えるので、既定は週1回の想定。daily-run.ps1 に入れるなら曜日ゲートを付けること。
+#   実測で1回あたり約65円（87件）。**毎日動かすと月2,000円規模**になるので週1回にしている。
+#   水曜にしたのは、週末イベントの告知が出そろい、かつ金曜のnote下書き生成より前だから。
 # ===================================================
 param(
     [int]$MaxQueries = 5,
-    [int]$MaxResults = 50
+    [int]$MaxResults = 50,
+    [switch]$Force
 )
 
 . "$PSScriptRoot\config.ps1"
+
+# ---- 水曜ゲート ----
+# 費用がかかるので毎日は動かさない。gen-note-draft.ps1 の金曜ゲートと同じ作法。
+if (-not $Force -and (Get-Date).DayOfWeek -ne 'Wednesday') {
+    exit 0
+}
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 

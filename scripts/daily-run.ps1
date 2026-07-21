@@ -27,6 +27,10 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 # note用の週末イベントまとめ下書きを生成（毎週金曜のみ・投稿は手動コピペ）
 & "$scriptDir\gen-note-draft.ps1"
 
+# Xでカーイベントの告知を探す（毎週水曜のみ・サイトには自動掲載せずレポートを出すだけ）
+# 出力: note-drafts\x-scan-YYYY-MM-DD.txt → 中身を見て submit.html から登録する
+& "$scriptDir\scan-x-events.ps1"
+
 # GitHub に push して Netlify を自動更新
 Write-Log "GitHub へ push 中..."
 try {
