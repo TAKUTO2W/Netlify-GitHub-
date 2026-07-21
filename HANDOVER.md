@@ -35,7 +35,7 @@ Windowsタスクスケジューラ **`CARJAM_DailyUpdate`** が `scripts\daily-r
 | 1 | `check-events.ps1` | **17サイト**をスクレイピングしてイベント収集 | 毎日 |
 | 2 | `gen-blog.ps1` | **Claude API**で記事2本生成 → はてなブログ投稿 | 毎日 |
 | 3 | `gen-pages.ps1` | イベント/記事の個別HTML + sitemap.xml 生成 | 毎日 |
-| 4 | `gen-x-events.ps1` | Xにイベントまとめを投稿 | **偶数日のみ** |
+| ~~4~~ | ~~`gen-x-events.ps1`~~ | ~~Xにイベントまとめを投稿~~ | **2026-07-21 停止**（Codex側で担当） |
 | 5 | `scan-x-events.ps1` | Xでカーイベント告知を探しレポートを出す（**自動掲載はしない**） | **水曜のみ** |
 | 6 | （daily-run内） | git add/commit/push → Netlifyデプロイ | 毎日 |
 
@@ -49,7 +49,7 @@ Windowsタスクスケジューラ **`CARJAM_DailyUpdate`** が `scripts\daily-r
 |---|---|---|---|
 | サイト本体 | 完全自動 | 毎日 | 無料 |
 | はてなブログ | 完全自動（API） | 毎日2本 | 無料 |
-| X @carjam_usdm | 完全自動（API） | 2日に1回 | 月$3 |
+| X @carjam_usdm | **投稿はCodex側へ移管**（2026-07-21〜） | — | — |
 | note @usdmstaff | **停止中**（2026-07-21〜） | — | — |
 | Claude API（記事生成） | — | — | 月$2程度 |
 
@@ -60,7 +60,9 @@ Windowsタスクスケジューラ **`CARJAM_DailyUpdate`** が `scripts\daily-r
 手順書（`README-note.md`）は残してある。再開したくなったら
 `daily-run.ps1` のコメントアウトを戻すだけでよい。
 
-**残高に注意**: X APIはプリペイド制。現在$25チャージ済み（≒8ヶ月分）。切れると投稿が止まる。
+**残高に注意**: X APIはプリペイド制。2026-07-20時点で$25チャージ済み。
+投稿は停止したが、**水曜の `scan-x-events.ps1`（イベント収集）が同じ残高を使う**（1回約65円）。
+切れると収集が止まる。
 確認先: https://console.x.com/accounts/2072807412650663936/billing/credits
 
 ---
@@ -71,7 +73,10 @@ Windowsタスクスケジューラ **`CARJAM_DailyUpdate`** が `scripts\daily-r
 
 - `$CLAUDE_API_KEY` — 記事生成用（2026-07-15に再発行）
 - `$HATENA_*` — はてなブログ投稿用
-- `$X_API_KEY` / `$X_API_KEY_SECRET` / `$X_ACCESS_TOKEN` / `$X_ACCESS_TOKEN_SECRET` — X投稿用（2026-07-18に再発行）
+- `$X_API_KEY` / `$X_API_KEY_SECRET` / `$X_ACCESS_TOKEN` / `$X_ACCESS_TOKEN_SECRET`（2026-07-18に再発行）
+  - ⚠️ **X投稿は停止したが、これらのキーは消さないこと。**
+    `scan-x-events.ps1`（水曜のイベント収集）が `$X_API_KEY` / `$X_API_KEY_SECRET` から
+    Bearer Token を生成して検索APIを叩いているため、消すと収集が止まる
 - `$X_POST_BLOG` — **未設定＝ブログ告知のXポストは無効**（コスト抑制。有効化するなら `$true` を追加）
 
 **編集時の注意**: ユーザーはメモ帳で編集する。cp932で保存されることがあるので、

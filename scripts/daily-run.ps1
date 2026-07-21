@@ -21,8 +21,11 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 # イベント・記事の個別ページと sitemap.xml を生成（SEO用）
 & "$scriptDir\gen-pages.ps1"
 
-# Xにイベント告知を投稿（2日に1回・偶数日のみ）
-& "$scriptDir\gen-x-events.ps1"
+# Xへの投稿は 2026-07-21 に停止した（別の仕組み＝Codex 側で担当するため）。
+# スクリプトは残してあるので、戻すなら次の行のコメントを外すだけでよい。
+# ※ X APIキーは config.ps1 にそのまま残す。scan-x-events.ps1（水曜の収集）が
+#   同じキーから Bearer Token を作って使っているため、消すとそちらが動かなくなる。
+# & "$scriptDir\gen-x-events.ps1"
 
 # note下書きの自動生成は 2026-07-21 に停止した（不要と判断）。
 # スクリプト自体（gen-note-draft.ps1 / gen-note-article.ps1 / post-to-note.ps1）は
