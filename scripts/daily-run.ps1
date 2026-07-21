@@ -24,8 +24,10 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 # Xにイベント告知を投稿（2日に1回・偶数日のみ）
 & "$scriptDir\gen-x-events.ps1"
 
-# note用の週末イベントまとめ下書きを生成（毎週金曜のみ・投稿は手動コピペ）
-& "$scriptDir\gen-note-draft.ps1"
+# note下書きの自動生成は 2026-07-21 に停止した（不要と判断）。
+# スクリプト自体（gen-note-draft.ps1 / gen-note-article.ps1 / post-to-note.ps1）は
+# 残してあるので、再開したくなったら次の行を戻すだけでよい。
+# & "$scriptDir\gen-note-draft.ps1"
 
 # Xでカーイベントの告知を探す（毎週水曜のみ・サイトには自動掲載せずレポートを出すだけ）
 # 出力: note-drafts\x-scan-YYYY-MM-DD.txt → 中身を見て submit.html から登録する
