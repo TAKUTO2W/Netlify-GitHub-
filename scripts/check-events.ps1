@@ -227,33 +227,57 @@ try {
 }
 
 # ===== RACRY (racry.jp) =====
+# racry は全件を一覧ページ（/products/list?pageno=N）から辿る。2026-07-21 に
+# 「トップページ分だけ」→「今後開催分を漏れなく」に拡張した。
+#
+# 一覧ページには日付が無く、過去イベント（2024年など）も商品として残り続けるため、
+# 詳細ページを開いて開催日を確認し、今日以降のものだけ採用する。
+# 過去と判定したURLも $newUrls（既知リスト）に入れて、翌日から再取得しないようにする
+# （過去は過去のまま変わらないので安全。これで2日目以降は新規商品だけ見に行く）。
+#
+# 利用規約（/help/agreement）は知的財産権の一般条項のみで、無断転載・複製の
+# 明示的な禁止は無いことを確認済み（2026-07-21）。事実データの抽出＋出典リンクで運用。
 Write-Log "racry.jp を取得中..."
 try {
-    $res = Invoke-WebRequest -Uri "https://racry.jp/" -UseBasicParsing -TimeoutSec 30
-    $html = $res.Content
     $before = $discoveredEvents.Count
-    # 商品詳細ページ URL: /products/detail/N — リストページから抽出
-    $prodBlocks = [regex]::Matches($html, '(?s)product__items--pic">(.*?)(?=product__items--pic|</main|$)', 'IgnoreCase')
-    foreach ($pb in $prodBlocks) {
-        $b = $pb.Groups[1].Value
-        $eurl = if ($b -match 'href="(https://racry\.jp/products/detail/\d+)"') { $Matches[1] } else { "" }
-        if (-not $eurl -or $eurl -in $knownUrls) { continue }
-        $plain = ($b -replace '<[^>]+>',' ' -replace '\s+',' ').Trim()
-        $edate = ""
-        if ($plain -match '(\d{4})年(\d{1,2})月(\d{1,2})日') {
-            $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
-        }
+    $racryUrls = New-Object System.Collections.Generic.List[string]
+    $seenRacry = @{}
+    $prevSig = ""
+    # 一覧を最大30ページ辿ってイベントURLを全部集める
+    for ($pg = 1; $pg -le 30; $pg++) {
+        try {
+            $lst = Invoke-WebRequest -Uri "https://racry.jp/products/list?pageno=$pg" -UseBasicParsing -TimeoutSec 20
+        } catch { break }
+        $pageUrls = @([regex]::Matches($lst.Content, 'https://racry\.jp/products/detail/\d+') | ForEach-Object { $_.Value } | Sort-Object -Unique)
+        $sig = ($pageUrls -join ',')
+        # 空 or 前ページと同じ内容（＝ページ番号超過で先頭に戻った）＝終端
+        if ($pageUrls.Count -eq 0 -or $sig -eq $prevSig) { break }
+        foreach ($u in $pageUrls) { if (-not $seenRacry.ContainsKey($u)) { $seenRacry[$u] = $true; $racryUrls.Add($u) } }
+        $prevSig = $sig
+        Start-Sleep -Milliseconds 300
+    }
+    Write-Log "racry.jp: 一覧から $($racryUrls.Count) 件のイベントURLを収集"
+
+    $today_racry = (Get-Date).Date
+    foreach ($eurl in $racryUrls) {
+        if ($eurl -in $knownUrls) { continue }
         try {
             $detail = Invoke-WebRequest -Uri $eurl -UseBasicParsing -TimeoutSec 15
             $dhtml = $detail.Content
             $ename = ""
             if ($dhtml -match '<title>([^|｜<]{3,80})') { $ename = Decode-Html ($Matches[1].Trim() -replace '[|｜].*$','').Trim() }
             if (-not $ename -and $dhtml -match '<h1[^>]*>([^<]+)</h1>') { $ename = Decode-Html $Matches[1].Trim() }
-            if (-not $edate -and $dhtml -match '(\d{4})年(\d{1,2})月(\d{1,2})日') {
+            $edate = ""
+            if ($dhtml -match '(\d{4})年(\d{1,2})月(\d{1,2})日') {
                 $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
             }
-            # ページ全体を渡さない（ナビメニューの「北海道」を拾う事故の対策）
-            $epref = Get-PrefectureScoped $ename $plain
+
+            # 過去イベント・日付不明はサイトに載せない。ただし既知URLに入れて翌日から再取得しない
+            $isFuture = $false
+            if ($edate) { try { $isFuture = ([datetime]$edate -ge $today_racry) } catch {} }
+            if (-not $isFuture) { $newUrls += $eurl; Start-Sleep -Milliseconds 300; continue }
+
+            $epref = Get-PrefectureScoped $ename ""
             # 詳細ページから会場等を拾う。会場に県名が入っていればそれを優先する
             $det = Get-EventDetailFields $dhtml
             $pFromPlace = Get-PrefectureFromPlace "$($det.venue) $($det.address)" $PREF_NAMES
