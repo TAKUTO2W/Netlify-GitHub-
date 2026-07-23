@@ -12,10 +12,12 @@
 #   - 同点なら id が小さい方（古くて安定しているもの）を残す
 # legacy-events.json のレコードは削除対象にしない（手動データは触らない）。
 #
-#   .\dedup-events.ps1          … ドライラン
-#   .\dedup-events.ps1 -Apply   … 実際に削除（.bak を残す）
+#   .\dedup-events.ps1                   … ドライラン
+#   .\dedup-events.ps1 -Apply            … 実際に削除（.bak を残す）
+#   .\dedup-events.ps1 -Apply -NoBackup  … daily-run から毎日呼ぶ用（.bak を作らない。
+#                                           データは git 履歴が保持するため）
 # ===================================================
-param([switch]$Apply)
+param([switch]$Apply, [switch]$NoBackup)
 
 . "$PSScriptRoot\config.ps1"
 
@@ -77,7 +79,9 @@ if (-not $Apply) {
 }
 
 $kept = @($newEvents | Where-Object { -not $removeIds.ContainsKey([string]$_.id) })
-$stamp = Get-Date -Format "yyyyMMdd-HHmmss"
-Copy-Item $neFile "$neFile.bak-$stamp" -Force
+if (-not $NoBackup) {
+    $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    Copy-Item $neFile "$neFile.bak-$stamp" -Force
+}
 [IO.File]::WriteAllText($neFile, "// 自動更新される。scripts/check-events.ps1 が書き換える`nwindow.NEW_EVENTS = " + ($kept | ConvertTo-Json -Depth 5 -Compress) + ";`n", (New-Object System.Text.UTF8Encoding($false)))
-Write-Host "`n削除しました: $($newEvents.Count) → $($kept.Count) 件。バックアップ: new-events.js.bak-$stamp"
+Write-Host "`n重複除去: $($newEvents.Count) → $($kept.Count) 件$(if($NoBackup){''}else{' / バックアップ: new-events.js.bak-'+$stamp})"

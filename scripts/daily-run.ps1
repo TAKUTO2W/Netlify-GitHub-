@@ -15,6 +15,10 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 # イベント収集
 & "$scriptDir\check-events.ps1"
 
+# 同じイベントが複数の収集元から入って重複するのを除去する。
+# 収集の直後・ページ生成の前に行う。gitが履歴を持つので日次では .bak を作らない。
+& "$scriptDir\dedup-events.ps1" -Apply -NoBackup
+
 # ブログ自動生成 + はてなブログ投稿
 & "$scriptDir\gen-blog.ps1"
 
