@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://carjam-usdm.netlify.app/</loc><lastmod>2026-07-22</lastmod></url>
-  <url><loc>https://carjam-usdm.netlify.app/blog.html</loc><lastmod>2026-07-22</lastmod></url>
-  <url><loc>https://carjam-usdm.netlify.app/submit.html</loc><lastmod>2026-07-22</lastmod></url>
-  <url><loc>https://carjam-usdm.netlify.app/sponsor.html</loc><lastmod>2026-07-22</lastmod></url>
-  <url><loc>https://carjam-usdm.netlify.app/contact.html</loc><lastmod>2026-07-22</lastmod></url>
-  <url><loc>https://carjam-usdm.netlify.app/privacy.html</loc><lastmod>2026-07-22</lastmod></url>
+  <url><loc>https://carjam-usdm.netlify.app/</loc><lastmod>2026-07-23</lastmod></url>
+  <url><loc>https://carjam-usdm.netlify.app/blog.html</loc><lastmod>2026-07-23</lastmod></url>
+  <url><loc>https://carjam-usdm.netlify.app/submit.html</loc><lastmod>2026-07-23</lastmod></url>
+  <url><loc>https://carjam-usdm.netlify.app/sponsor.html</loc><lastmod>2026-07-23</lastmod></url>
+  <url><loc>https://carjam-usdm.netlify.app/contact.html</loc><lastmod>2026-07-23</lastmod></url>
+  <url><loc>https://carjam-usdm.netlify.app/privacy.html</loc><lastmod>2026-07-23</lastmod></url>
   <url><loc>https://carjam-usdm.netlify.app/events/1.html</loc></url>
   <url><loc>https://carjam-usdm.netlify.app/events/2.html</loc></url>
   <url><loc>https://carjam-usdm.netlify.app/events/3.html</loc></url>
@@ -422,6 +422,8 @@
   <url><loc>https://carjam-usdm.netlify.app/events/849.html</loc></url>
   <url><loc>https://carjam-usdm.netlify.app/events/850.html</loc></url>
   <url><loc>https://carjam-usdm.netlify.app/events/851.html</loc></url>
+  <url><loc>https://carjam-usdm.netlify.app/events/852.html</loc></url>
+  <url><loc>https://carjam-usdm.netlify.app/events/853.html</loc></url>
   <url><loc>https://carjam-usdm.netlify.app/articles/1.html</loc></url>
   <url><loc>https://carjam-usdm.netlify.app/articles/2.html</loc></url>
   <url><loc>https://carjam-usdm.netlify.app/articles/3.html</loc></url>
@@ -475,4 +477,6 @@
   <url><loc>https://carjam-usdm.netlify.app/articles/159.html</loc></url>
   <url><loc>https://carjam-usdm.netlify.app/articles/160.html</loc></url>
   <url><loc>https://carjam-usdm.netlify.app/articles/161.html</loc></url>
+  <url><loc>https://carjam-usdm.netlify.app/articles/162.html</loc></url>
+  <url><loc>https://carjam-usdm.netlify.app/articles/163.html</loc></url>
 </urlset>
