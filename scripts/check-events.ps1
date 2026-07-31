@@ -783,6 +783,60 @@ try {
     Write-Log "JMRC四国(ICS) の取得に失敗: $($_.Exception.Message)"
 }
 
+# ===== ドレスアップカーイベント.com (dupcar-event.com) =====
+# 全ジャンル横断（カスタム/VIP/旧車/痛車/ドリフト等）の全国イベントアグリゲーター。
+# 2026-07-27 追加。詳細ページが「開催日/会場/主催」のラベル付きで構造がきれい。
+# 一覧 /event/ は「Page 1 of 2」なので 3ページまで見れば十分（余裕を持たせている）。
+# robots.txt は Yandex/MJ12/Semrush のみ Disallow で一般クローラは許可。
+# 利用規約に無断転載・複製の禁止条項は無いことを確認済み（本文を読んだ）。
+Write-Log "dupcar-event.com を取得中..."
+try {
+    $dupUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+    $before = $discoveredEvents.Count
+    $dupUrls = New-Object System.Collections.Generic.List[string]
+    $dupSeen = @{}
+    foreach ($pageUrl in @("https://dupcar-event.com/event/","https://dupcar-event.com/event/page/2/","https://dupcar-event.com/event/page/3/")) {
+        try { $lst = Invoke-WebRequest -Uri $pageUrl -UseBasicParsing -TimeoutSec 20 -Headers @{ "User-Agent"=$dupUA } } catch { break }
+        $urls = @([regex]::Matches($lst.Content, 'https://dupcar-event\.com/event/\d+') | ForEach-Object { $_.Value } | Sort-Object -Unique)
+        if ($urls.Count -eq 0) { break }
+        foreach ($u in $urls) { if (-not $dupSeen.ContainsKey($u)) { $dupSeen[$u] = $true; $dupUrls.Add($u) } }
+        Start-Sleep -Milliseconds 400
+    }
+
+    $today_dup = (Get-Date).Date
+    foreach ($eurl in $dupUrls) {
+        if ($eurl -in $knownUrls) { continue }
+        try {
+            $detail = Invoke-WebRequest -Uri $eurl -UseBasicParsing -TimeoutSec 15 -Headers @{ "User-Agent"=$dupUA }
+            $dh = $detail.Content
+            # タイトル「イベント名 | 2026年8月1日(土) - 新潟県 弥彦スカイライン」から名前だけ取る
+            $ename = ""
+            if ($dh -match '<title>([^|<]+)') { $ename = Decode-Html ($Matches[1].Trim()) }
+            # 開催日（登録日は YYYY/MM/DD なので 年月日 パターンには当たらない＝安全に開催日が取れる）
+            $edate = ""
+            if ($dh -match '(\d{4})年(\d{1,2})月(\d{1,2})日') {
+                $edate = "$($Matches[1])-$($Matches[2].PadLeft(2,'0'))-$($Matches[3].PadLeft(2,'0'))"
+            }
+            if (-not $edate) { continue }
+            # 念のため過去は載せない（このサイトは今後分中心だが安全策）
+            $isFut = $false; try { $isFut = ([datetime]$edate -ge $today_dup) } catch {}
+            if (-not $isFut) { $newUrls += $eurl; Start-Sleep -Milliseconds 300; continue }
+
+            $det = Get-EventDetailFields $dh
+            $epref = Get-PrefectureFromPlace "$($det.venue) $($det.address)" $PREF_NAMES
+            if (-not $epref) { $epref = Get-PrefectureScoped $ename "" }
+            if ($ename.Length -ge 3) {
+                $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=$det.venue; url=$eurl; source="dupcar"; detail=$det }
+                $newUrls += $eurl
+            }
+        } catch {}
+        Start-Sleep -Milliseconds 400
+    }
+    Write-Log "dupcar-event.com: $($discoveredEvents.Count - $before) 件の新規候補"
+} catch {
+    Write-Log "dupcar-event.com エラー: $_"
+}
+
 # ===== 会場のイベントカレンダー（一般イベントに混ざったカーイベントを拾う） =====
 #
 # 展示場・タワー等のカレンダーは車以外のイベントが大半なので、名前で絞る必要がある。
@@ -1042,12 +1096,18 @@ foreach ($ev in $discoveredEvents) {
     $nextId++
 }
 
-# 既存イベントのカテゴリ・説明文も再分類
+# 既存イベントのカテゴリを再分類。
+# ※ 以前はここで $ev.description = "" として毎回説明文を消していたが、それが原因で
+#   毎朝の収集のたびに（enrich等で埋めた）説明文が全消しされていた（2026-07-31 に発見・修正）。
+#   説明文は貴重なデータなので保持する。無い場合だけ、詳細情報があれば作る。
 $updatedExisting = @()
 foreach ($ev in $existingNewEvents) {
     $src = if ($ev.PSObject.Properties['source']) { $ev.source } else { "" }
     $ev.category = Get-CategoryFromName $ev.name $src
-    $ev.description = ""
+    # description フィールドが無い古いレコードには空文字を用意（値があるものは触らない）
+    if (-not $ev.PSObject.Properties['description']) {
+        $ev | Add-Member -NotePropertyName description -NotePropertyValue "" -Force
+    }
     # 都道府県が "未定" の場合、名前から再推定
     if ($ev.prefecture -eq "未定" -or -not $ev.prefecture) {
         $guess = Get-PrefectureFromName "$($ev.name) $($ev.venue)"
