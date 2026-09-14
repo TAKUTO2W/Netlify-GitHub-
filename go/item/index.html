@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>楽天市場の商品ページへ移動しています | CARJAM</title>
+  <link rel="icon" type="image/svg+xml" href="/images/favicon.svg">
+  <!--
+    記事・SNSから楽天の「商品ページ」へ送る中継ページ。
+    ?u= に楽天の商品URL、utm_* にどこから来たかを入れて呼ぶ。
+    GA4 に rakuten_click（shop・item）を記録してから転送する。
+    悪用（他サイトへの転送）を防ぐため、自社2店舗の商品URLだけを許可し、それ以外は USDM 店のトップへ送る。
+  -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1788PQ532"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-H1788PQ532');
+
+    var ALLOWED = ['https://item.rakuten.co.jp/usdm/', 'https://item.rakuten.co.jp/seikatu-souko/'];
+    var FALLBACK = 'https://www.rakuten.co.jp/usdm/';
+    var u = new URLSearchParams(location.search).get('u') || '';
+    var ok = ALLOWED.some(function (p) { return u.indexOf(p) === 0; });
+    var dest = ok ? u : FALLBACK;
+    var shop = ok ? u.split('/')[3] : 'usdm';
+    var item = ok ? (u.split('/')[4] || '') : '';
+
+    var moved = false;
+    function go() { if (moved) return; moved = true; location.replace(dest); }
+    gtag('event', 'rakuten_click', { shop: shop, item: item, event_callback: go, event_timeout: 1200 });
+    setTimeout(go, 1500);
+  </script>
+  <style>body{font-family:sans-serif;text-align:center;padding:48px 16px;color:#333}a{color:#bf0000}</style>
+</head>
+<body>
+  <p>楽天市場の商品ページへ移動しています…</p>
+  <p><a id="manual" href="https://www.rakuten.co.jp/usdm/">自動で切り替わらない場合はこちら</a></p>
+  <script>document.getElementById('manual').href = dest;</script>
+</body>
+</html>
