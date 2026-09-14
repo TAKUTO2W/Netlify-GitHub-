@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>カスタムパーツ WORLD倉庫（楽天市場） へ移動しています | CARJAM</title>
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="CARJAM">
+  <meta property="og:title" content="カスタムパーツ WORLD倉庫（楽天市場）">
+  <meta property="og:description" content="輸入品カスタマイズパーツの専門店。株式会社USDMが運営しています。">
+  <meta property="og:image" content="https://carjam-usdm.netlify.app/images/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@carjam_usdm">
+  <link rel="icon" type="image/svg+xml" href="/images/favicon.svg">
+  <!--
+    SNS・ブログから楽天へ送る中継ページ。
+    URL の utm_source（どの媒体から来たか）を GA4 に記録してから楽天へ転送する。
+    楽天は独自の計測タグを置けないため、媒体別の送客数はここでしか測れない。
+  -->
+  <noscript><meta http-equiv="refresh" content="0;url=https://www.rakuten.co.jp/seikatu-souko/"></noscript>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1788PQ532"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-H1788PQ532');
+
+    var dest = 'https://www.rakuten.co.jp/seikatu-souko/';
+    var moved = false;
+    function go() { if (moved) return; moved = true; location.replace(dest); }
+    gtag('event', 'rakuten_click', { shop: 'souko', event_callback: go, event_timeout: 1200 });
+    setTimeout(go, 1500); // 計測が遅れても必ず転送する
+  </script>
+  <style>body{font-family:sans-serif;text-align:center;padding:48px 16px;color:#333}a{color:#bf0000}</style>
+</head>
+<body>
+  <p>カスタムパーツ WORLD倉庫（楽天市場） へ移動しています…</p>
+  <p><a href="https://www.rakuten.co.jp/seikatu-souko/">自動で切り替わらない場合はこちら</a></p>
+</body>
+</html>
