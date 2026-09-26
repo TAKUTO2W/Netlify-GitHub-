@@ -216,6 +216,9 @@ try {
         $plain = ($b -replace '<[^>]+>',' ' -replace '\s+',' ').Trim()
         $epref = Get-PrefectureFromName $plain
         if (-not $epref) { $epref = Get-Prefecture $plain }
+        # mach5（イベントマニア）は花火大会・夏祭りなど車以外の行事も同じ一覧に載せている。
+        # 判定なしで取り込んでいたため、約80件が「カーミーティング」として混入していた（2026-09-14 発見）。
+        if ($ename -match '花火|盆踊|納涼|夏まつり|夏祭|市民のまつり|市民祭|芸能まつり|鉄砲まつり|みなとまつり|サマーフェスティバル' -and $ename -notmatch '痛車|カー|車|サーキット|ミーティング|HKS|オフ会|ドリフト') { continue }
         if ($ename -and $edate -and $eurl -and ($eurl -notin $knownUrls)) {
             $discoveredEvents += [PSCustomObject]@{ name=$ename; date=$edate; prefecture=$epref; venue=""; url=$eurl; source="mach5" }
             $newUrls += $eurl

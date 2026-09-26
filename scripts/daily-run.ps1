@@ -45,7 +45,8 @@ Write-Log "GitHub へ push 中..."
 try {
     Set-Location $PROJECT_ROOT
     $git = "C:\Program Files\Git\cmd\git.exe"
-    & $git add -A data/new-events.js data/new-blog-posts.js data/updates.js data/known-event-urls.json events articles sitemap.xml
+    # area / month は gen-pages.ps1 が作る都道府県別・月別の一覧ページ（2026-09-14 追加）
+    & $git add -A data/new-events.js data/new-blog-posts.js data/updates.js data/known-event-urls.json events articles area month sitemap.xml
     $today = Get-Date -Format "yyyy-MM-dd"
     & $git commit -m "auto update: $today"
     & $git push

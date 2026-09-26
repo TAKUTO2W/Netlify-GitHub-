@@ -44,9 +44,74 @@ $posts = @()
 $posts += @((Get-Content "$PROJECT_ROOT\data\legacy-posts.json" -Raw -Encoding UTF8) | ConvertFrom-Json | ForEach-Object { $_ })
 $posts += Read-JsonArrayFromJs "$PROJECT_ROOT\data\new-blog-posts.js" 'window\.NEW_BLOG_POSTS\s*=\s*(\[[\s\S]*?\]);'
 
+# 車と関係のない行事は載せない。収集元（mach5 など）が花火大会・夏祭りを
+# 「カーミーティング」として取り込んでいた（2026-09-14 に約80件見つかった）。
+# サイトの質が低く見られ、Google の登録が進まない原因にもなる。
+# ※「夏祭り」を名乗る痛車イベント（エンジョイ痛車フェスティバル 夏祭り 等）もあるので、
+#   祭り系の語で弾くのは mach5 由来で、かつ車の語を含まないものだけにする。
+$FESTIVAL_PATTERN = '花火|盆踊|納涼|夏まつり|夏祭|市民のまつり|市民祭|芸能まつり|鉄砲まつり|みなとまつり|サマーフェスティバル'
+$CAR_WORD_PATTERN = '痛車|カー|車|サーキット|ミーティング|HKS|オフ会|ドリフト'
+function Test-ListableEvent($e) {
+    if (-not $e.name -or -not $e.date) { return $false }
+    if ($e.source -eq 'mach5' -and $e.name -match $FESTIVAL_PATTERN -and $e.name -notmatch $CAR_WORD_PATTERN) { return $false }
+    if ($e.name -match 'コスプレ') { return $false }
+    if ($e.source -eq 'coscam' -and $e.name -notmatch '痛') { return $false }  # コスプレ撮影会の収集元。痛車・コス痛だけ残す
+    return $true
+}
+# 日付に全角数字（"２０２６-１０-１１"）が入っているものがある（minkara・jmty 由来、2026-09-14 に6件）。
+# 並べ替え・月の判定が壊れるので半角にそろえる。
+function Convert-Digits($s) {
+    if (-not $s) { return $s }
+    return [regex]::Replace([string]$s, '[０-９]', { param($m) [string]([int][char]$m.Value - 0xFF10) })
+}
+foreach ($e in $events) {
+    if ($e.date) { $e.date = Convert-Digits $e.date }
+    if ($e.PSObject.Properties['endDate'] -and $e.endDate) { $e.endDate = Convert-Digits $e.endDate }
+}
+
+$before = $events.Count
+$events = @($events | Where-Object { (Test-ListableEvent $_) -and ($_.date -match '^\d{4}-\d{2}-\d{2}$') })
+Write-Log "gen-pages: 車以外の行事 $($before - $events.Count) 件を除外"
+
 Write-Log "gen-pages: イベント $($events.Count) 件 / 記事 $($posts.Count) 本のページを生成"
 
+# ---------------------------------------------------
+# 都道府県・地方の対応表（一覧ページ /area/ 用）
+# ---------------------------------------------------
+$PREF_SLUG = [ordered]@{
+    '北海道'='hokkaido'; '青森県'='aomori'; '岩手県'='iwate'; '宮城県'='miyagi'; '秋田県'='akita'; '山形県'='yamagata'; '福島県'='fukushima'
+    '茨城県'='ibaraki'; '栃木県'='tochigi'; '群馬県'='gunma'; '埼玉県'='saitama'; '千葉県'='chiba'; '東京都'='tokyo'; '神奈川県'='kanagawa'
+    '新潟県'='niigata'; '富山県'='toyama'; '石川県'='ishikawa'; '福井県'='fukui'; '山梨県'='yamanashi'; '長野県'='nagano'; '岐阜県'='gifu'; '静岡県'='shizuoka'; '愛知県'='aichi'
+    '三重県'='mie'; '滋賀県'='shiga'; '京都府'='kyoto'; '大阪府'='osaka'; '兵庫県'='hyogo'; '奈良県'='nara'; '和歌山県'='wakayama'
+    '鳥取県'='tottori'; '島根県'='shimane'; '岡山県'='okayama'; '広島県'='hiroshima'; '山口県'='yamaguchi'
+    '徳島県'='tokushima'; '香川県'='kagawa'; '愛媛県'='ehime'; '高知県'='kochi'
+    '福岡県'='fukuoka'; '佐賀県'='saga'; '長崎県'='nagasaki'; '熊本県'='kumamoto'; '大分県'='oita'; '宮崎県'='miyazaki'; '鹿児島県'='kagoshima'; '沖縄県'='okinawa'
+}
+$REGION_PREFS = [ordered]@{
+    '北海道' = @('北海道')
+    '東北'   = @('青森県','岩手県','宮城県','秋田県','山形県','福島県')
+    '関東'   = @('茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県')
+    '中部'   = @('新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県','静岡県','愛知県')
+    '近畿'   = @('三重県','滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県')
+    '中国'   = @('鳥取県','島根県','岡山県','広島県','山口県')
+    '四国'   = @('徳島県','香川県','愛媛県','高知県')
+    '九州・沖縄' = @('福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県')
+}
+
+# 今後開催（終了日が今日以降）のイベント。一覧ページはこれで作る
+$todayStr = Get-Date -Format "yyyy-MM-dd"
+$upcoming = @($events | Where-Object { $end = if ($_.endDate) { $_.endDate } else { $_.date }; $end -ge $todayStr } | Sort-Object date, id)
+# 一覧ページを作る県（今後のイベントが1件以上）と月
+$prefHasPage = @{}
+foreach ($e in $upcoming) { if ($PREF_SLUG.Contains([string]$e.prefecture)) { $prefHasPage[[string]$e.prefecture] = $true } }
+$monthHasPage = @{}
+foreach ($e in $upcoming) { $monthHasPage[$e.date.Substring(0,7)] = $true }
+
 # 出力ディレクトリ（毎回作り直して古いページを掃除）
+foreach ($dir in @("$PROJECT_ROOT\area", "$PROJECT_ROOT\month")) {
+    if (Test-Path $dir) { Remove-Item "$dir\*.html" -Force -ErrorAction SilentlyContinue }
+    else { New-Item -ItemType Directory -Path $dir | Out-Null }
+}
 foreach ($dir in @("$PROJECT_ROOT\events", "$PROJECT_ROOT\articles")) {
     if (Test-Path $dir) { Remove-Item "$dir\*.html" -Force -ErrorAction SilentlyContinue }
     else { New-Item -ItemType Directory -Path $dir | Out-Null }
@@ -102,6 +167,18 @@ $pageTemplate = @'
     .btn { display: inline-block; background: #e8001d; color: #fff; font-weight: 700; text-decoration: none; padding: 12px 22px; border-radius: 8px; margin: 8px 8px 8px 0; font-size: 14px; }
     .btn.ghost { background: none; border: 1px solid #333; color: #c9c9cf; }
     .tags { margin-top: 20px; font-size: 12px; color: #777; }
+    .lead { margin-bottom: 20px; }
+    .evlist { list-style: none; margin: 0 0 24px; }
+    .evlist li { padding: 12px 0; border-bottom: 1px solid #222; }
+    .evlist a { color: #fff; font-weight: 700; text-decoration: none; }
+    .evlist a:hover { text-decoration: underline; }
+    .evlist .sub { display: block; font-size: 12px; color: #888; margin-top: 2px; }
+    .content h2.sec { margin-top: 2em; }
+    .links { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; }
+    .links a { font-size: 13px; text-decoration: none; padding: 6px 12px; border: 1px solid #333; border-radius: 16px; color: #c9c9cf; }
+    .links a:hover { border-color: #e8001d; color: #fff; }
+    .links .n { color: #777; margin-left: 4px; }
+    .related { margin-top: 28px; padding-top: 18px; border-top: 1px solid #222; font-size: 14px; }
     footer { border-top: 1px solid #222; padding: 24px 20px; text-align: center; font-size: 12px; color: #666; }
     footer a { color: #999; }
   </style>
@@ -115,7 +192,7 @@ $pageTemplate = @'
 {{BODY}}
 </main>
 <footer>
-  <a href="../index.html">CARJAM — 日本全国のカーイベント情報</a>　|　<a href="../blog.html">ブログ</a>　|　<a href="../privacy.html">プライバシーポリシー</a>
+  <a href="../index.html">CARJAM — 日本全国のカーイベント情報</a>　|　<a href="../area/index.html">都道府県から探す</a>　|　<a href="../blog.html">ブログ</a>　|　<a href="../privacy.html">プライバシーポリシー</a>
 </footer>
 </body>
 </html>
@@ -128,6 +205,49 @@ function New-Page($title, $desc, $canonical, $jsonLd, $body, $outPath) {
         Replace("{{JSONLD}}", $jsonLd).
         Replace("{{BODY}}", $body)
     [IO.File]::WriteAllText($outPath, $html, $utf8NoBom)
+}
+
+# 一覧ページで使う部品
+function Event-ListHtml($list) {
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.Append('<ul class="evlist">')
+    foreach ($ev in @($list)) {
+        $d = Format-DateJp $ev.date
+        $v = if ($ev.venue -and $ev.venue -ne "未定") { "・" + (Esc-Html $ev.venue) } else { "" }
+        [void]$sb.Append("<li><a href=""../events/$($ev.id).html"">$(Esc-Html $ev.name)</a><span class=""sub"">$($d)・$(Esc-Html $ev.prefecture)$($v)・$(Esc-Html $ev.category)</span></li>")
+    }
+    [void]$sb.Append('</ul>')
+    return $sb.ToString()
+}
+
+function Month-Label($ym) {
+    return "{0}年{1}月" -f [int]$ym.Substring(0,4), [int]$ym.Substring(5,2)
+}
+
+# 個別イベントページの下に付ける「同じ県・同じ月のイベント」へのリンク
+function Related-LinksHtml($ev) {
+    $parts = @()
+    $pref = [string]$ev.prefecture
+    if ($prefHasPage.ContainsKey($pref)) {
+        $parts += "<a href=""../area/$($PREF_SLUG[$pref]).html"">$(Esc-Html $pref)のカーイベント一覧</a>"
+    }
+    $ym = $ev.date.Substring(0,7)
+    if ($monthHasPage.ContainsKey($ym)) {
+        $parts += "<a href=""../month/$($ym).html"">$(Month-Label $ym)の全国カーイベント</a>"
+    }
+    $parts += "<a href=""../area/index.html"">都道府県から探す</a>"
+    return "<div class=""related""><div class=""links"">" + ($parts -join "") + "</div></div>"
+}
+
+function ItemList-JsonLd($name, $list) {
+    $items = @()
+    $pos = 1
+    foreach ($ev in @($list | Select-Object -First 30)) {
+        $items += [ordered]@{ "@type" = "ListItem"; position = $pos; url = "$SITE_URL/events/$($ev.id).html"; name = $ev.name }
+        $pos++
+    }
+    $ld = [ordered]@{ "@context" = "https://schema.org"; "@type" = "ItemList"; name = $name; itemListElement = $items }
+    return ($ld | ConvertTo-Json -Depth 6 -Compress)
 }
 
 # ---------------------------------------------------
@@ -176,11 +296,104 @@ foreach ($e in $events) {
         "</div>`n" +
         $(if ($e.description) { "<div class=""content""><p>$(Esc-Html $e.description)</p></div>`n" }) +
         $(if ($e.url) { "<a class=""btn"" href=""$(Esc-Html $e.url)"" target=""_blank"" rel=""noopener"">イベント公式情報を見る</a>" }) +
-        "<a class=""btn ghost"" href=""../index.html"">CARJAMで他のイベントを探す</a>"
+        "<a class=""btn ghost"" href=""../index.html"">CARJAMで他のイベントを探す</a>" +
+        (Related-LinksHtml $e)
 
     New-Page $title $descText $canonical $jsonLd $body "$PROJECT_ROOT\events\$($e.id).html"
     $eventUrls += $canonical
 }
+
+# ---------------------------------------------------
+# 一覧ページ（都道府県別 /area/ ・ 月別 /month/ ・ 都道府県の索引 /area/index.html）
+# 個別イベントページはどのページからもリンクされておらず Google に見つけてもらえなかった
+# （2026-09-14 サーチコンソール「参照元ページ: 検出されませんでした」、1,014ページ中登録1）。
+# トップはJSで描画しているため、静的なリンクの入った一覧ページで個別ページへつなぐ。
+# 「東京都 カーイベント」「2026年10月 車イベント」のような検索の受け皿にもなる。
+# ---------------------------------------------------
+$hubUrls = @()
+$yearNow = (Get-Date).Year
+
+# 地方ごとの県リンク（件数つき）。一覧ページのある県だけ
+function Region-LinksHtml($onlyRegion) {
+    $sb = New-Object System.Text.StringBuilder
+    foreach ($region in $REGION_PREFS.Keys) {
+        if ($onlyRegion -and $region -ne $onlyRegion) { continue }
+        $links = @()
+        foreach ($p in $REGION_PREFS[$region]) {
+            if (-not $prefHasPage.ContainsKey($p)) { continue }
+            $n = @($upcoming | Where-Object { $_.prefecture -eq $p }).Count
+            $links += "<a href=""$($PREF_SLUG[$p]).html"">$(Esc-Html $p)<span class=""n"">$($n)</span></a>"
+        }
+        if ($links.Count -eq 0) { continue }
+        if (-not $onlyRegion) { [void]$sb.Append("<h2 class=""sec"">$(Esc-Html $region)</h2>") }
+        [void]$sb.Append("<div class=""links"">" + ($links -join "") + "</div>")
+    }
+    return $sb.ToString()
+}
+
+function Month-LinksHtml($prefix) {
+    $links = @()
+    foreach ($ym in @($monthHasPage.Keys | Sort-Object)) {
+        $n = @($upcoming | Where-Object { $_.date.StartsWith($ym) }).Count
+        $links += "<a href=""$($prefix)$($ym).html"">$(Month-Label $ym)<span class=""n"">$($n)</span></a>"
+    }
+    return "<div class=""links"">" + ($links -join "") + "</div>"
+}
+
+# 都道府県別
+foreach ($pref in @($prefHasPage.Keys)) {
+    $list = @($upcoming | Where-Object { $_.prefecture -eq $pref })
+    $slug = $PREF_SLUG[$pref]
+    $canonical = "$SITE_URL/area/$($slug).html"
+    $region = @($REGION_PREFS.Keys | Where-Object { $REGION_PREFS[$_] -contains $pref })[0]
+    $first = Format-DateJp $list[0].date
+    $title = "$($pref)のカーイベント・車イベント一覧【$($yearNow)年】| CARJAM"
+    $descText = "$($pref)で開催予定のカーイベント$($list.Count)件を日付順に掲載。カーミーティング・旧車・カスタムカーショー・サーキット走行会など、$($pref)の車イベント情報をCARJAMでまとめてチェック。"
+    $body = "<div class=""chip"">都道府県別</div>`n" +
+        "<h1>$(Esc-Html $pref)のカーイベント一覧</h1>`n" +
+        "<p class=""lead"">$(Esc-Html $pref)で今後開催予定のカーイベントは <strong>$($list.Count)件</strong>（$($first)から）。イベント名を押すと、開催日・会場・公式情報をまとめたページが開きます。日程は変わることがあるので、お出かけ前に公式情報を確認してください。</p>`n" +
+        (Event-ListHtml $list) +
+        "<div class=""content""><h2 class=""sec"">$(Esc-Html $region)のほかの県</h2></div>" + (Region-LinksHtml $region) +
+        "<div class=""content""><h2 class=""sec"">月別に探す</h2></div>" + (Month-LinksHtml "../month/") +
+        "<a class=""btn ghost"" href=""index.html"">都道府県の一覧へ</a><a class=""btn ghost"" href=""../index.html"">CARJAMトップへ</a>"
+    New-Page $title $descText $canonical (ItemList-JsonLd "$($pref)のカーイベント一覧" $list) $body "$PROJECT_ROOT\area\$($slug).html"
+    $hubUrls += $canonical
+}
+
+# 月別（地方ごとに見出し）
+foreach ($ym in @($monthHasPage.Keys | Sort-Object)) {
+    $list = @($upcoming | Where-Object { $_.date.StartsWith($ym) })
+    $label = Month-Label $ym
+    $canonical = "$SITE_URL/month/$($ym).html"
+    $title = "$($label)の全国カーイベント・車イベント一覧 | CARJAM"
+    $descText = "$($label)に全国で開催予定のカーイベント$($list.Count)件を地方別に掲載。カーミーティング・旧車イベント・カスタムカーショー・モーターショーなど、$($label)の車イベントをCARJAMでチェック。"
+    $sections = New-Object System.Text.StringBuilder
+    foreach ($region in $REGION_PREFS.Keys) {
+        $rl = @($list | Where-Object { $REGION_PREFS[$region] -contains $_.prefecture })
+        if ($rl.Count -eq 0) { continue }
+        [void]$sections.Append("<div class=""content""><h2 class=""sec"">$(Esc-Html $region)（$($rl.Count)件）</h2></div>" + (Event-ListHtml $rl))
+    }
+    $body = "<div class=""chip"">月別</div>`n" +
+        "<h1>$($label)の全国カーイベント一覧</h1>`n" +
+        "<p class=""lead"">$($label)に全国で開催予定のカーイベントは <strong>$($list.Count)件</strong>。地方ごとに日付順で並べています。</p>`n" +
+        $sections.ToString() +
+        "<div class=""content""><h2 class=""sec"">ほかの月</h2></div>" + (Month-LinksHtml "") +
+        "<a class=""btn ghost"" href=""../area/index.html"">都道府県から探す</a><a class=""btn ghost"" href=""../index.html"">CARJAMトップへ</a>"
+    New-Page $title $descText $canonical (ItemList-JsonLd "$($label)の全国カーイベント一覧" $list) $body "$PROJECT_ROOT\month\$($ym).html"
+    $hubUrls += $canonical
+}
+
+# 都道府県の索引
+$prefCount = $prefHasPage.Count
+$body = "<div class=""chip"">都道府県から探す</div>`n" +
+    "<h1>都道府県別 カーイベント一覧</h1>`n" +
+    "<p class=""lead"">全国で今後開催予定のカーイベントは <strong>$($upcoming.Count)件</strong>（$($prefCount)都道府県）。県名を押すと、その県のイベントを日付順で見られます。数字は今後の開催件数です。</p>`n" +
+    (Region-LinksHtml $null) +
+    "<div class=""content""><h2 class=""sec"">月別に探す</h2></div>" + (Month-LinksHtml "../month/") +
+    "<a class=""btn ghost"" href=""../index.html"">CARJAMトップへ</a>"
+New-Page "都道府県別 カーイベント・車イベント一覧【$($yearNow)年】| CARJAM" "全国のカーイベント$($upcoming.Count)件を都道府県別・月別に探せます。カーミーティング・旧車・カスタムカーショー・サーキット走行会など、日本全国の車イベント情報はCARJAM。" "$SITE_URL/area/" '{"@context":"https://schema.org","@type":"CollectionPage","name":"都道府県別 カーイベント一覧"}' $body "$PROJECT_ROOT\area\index.html"
+$hubUrls = @("$SITE_URL/area/") + $hubUrls
+Write-Log "gen-pages: 一覧ページ $($hubUrls.Count) 枚（都道府県 $($prefHasPage.Count) / 月 $($monthHasPage.Count) / 索引 1）"
 
 # ---------------------------------------------------
 # 記事ページ
@@ -232,7 +445,7 @@ $staticUrls = @("$SITE_URL/", "$SITE_URL/blog.html", "$SITE_URL/submit.html", "$
 $sb = New-Object System.Text.StringBuilder
 [void]$sb.AppendLine('<?xml version="1.0" encoding="UTF-8"?>')
 [void]$sb.AppendLine('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">')
-foreach ($u in $staticUrls) {
+foreach ($u in ($staticUrls + $hubUrls)) {
     [void]$sb.AppendLine("  <url><loc>$u</loc><lastmod>$today</lastmod></url>")
 }
 foreach ($u in ($eventUrls + $articleUrls)) {
@@ -241,4 +454,4 @@ foreach ($u in ($eventUrls + $articleUrls)) {
 [void]$sb.AppendLine('</urlset>')
 [IO.File]::WriteAllText("$PROJECT_ROOT\sitemap.xml", $sb.ToString(), $utf8NoBom)
 
-Write-Log "gen-pages: 完了（イベント $($eventUrls.Count) / 記事 $($articleUrls.Count) / sitemap $($staticUrls.Count + $eventUrls.Count + $articleUrls.Count) URL）"
+Write-Log "gen-pages: 完了（イベント $($eventUrls.Count) / 一覧 $($hubUrls.Count) / 記事 $($articleUrls.Count) / sitemap $($staticUrls.Count + $hubUrls.Count + $eventUrls.Count + $articleUrls.Count) URL）"
